@@ -36,6 +36,11 @@ Purpose: Preserve verified project state between agent sessions. Update this fil
   - `npx tsc --noEmit` in `mobile/`: Passed (strict TypeScript check passed with 0 errors).
   - `npx expo start` & Metro status check (`http://localhost:8081/status`): Passed (`packager-status:running`).
 - **Review findings and fixes**: Added `"type": "module"` in `backend/package.json` for native ESM compatibility with NodeNext; added `.env` ignore rules to `mobile/.gitignore`; verified headers and comments per `CONVENTIONS.md`.
+- **Commit hashes**:
+  - `8eac548`: `docs: organize documentation and establish master task checklists`
+  - `362c666`: `chore: configure repository gitignore and add root README`
+  - `194255f`: `feat(backend): initialize Express TypeScript backend with health endpoint`
+  - `d72326f`: `feat(mobile): initialize Expo React Native TypeScript project`
 - **Remote/push status**: Remote `origin` points to `https://github.com/OmChauhan07/MiniLedger.git`.
 - **Known limitations**: Phase 0 scope only; database models, mock OTP, loan APIs, and mobile UI screens are scheduled for Phase 1–3.
 - **Next exact action**: Begin Phase 1 (Database and Authentication) in a separate run.
