@@ -13,7 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { User, Summary } from '../../types/index';
+import { User, Summary, Loan } from '../../types/index';
 import {
   ShieldIcon,
   CheckIcon,
@@ -22,13 +22,16 @@ import {
   LogoutIcon,
   ChatIcon,
   InfoIcon,
+  ArrowUpRightIcon,
+  ArrowDownLeftIcon,
 } from '../../components/Icons';
 import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
-import { formatCurrencyCompact } from '../../utils/format';
+import { formatCurrencyCompact, checkIsOverdue } from '../../utils/format';
 
 interface AccountScreenProps {
   user: User;
   summary: Summary | null;
+  loans?: Loan[];
   totalLoansCount: number;
   onLogout: () => void;
   onExportCsv?: () => void;
@@ -37,6 +40,7 @@ interface AccountScreenProps {
 export function AccountScreen({
   user,
   summary,
+  loans = [],
   totalLoansCount,
   onLogout,
   onExportCsv,
@@ -44,7 +48,16 @@ export function AccountScreen({
   const [screenLockEnabled, setScreenLockEnabled] = useState(true);
   const [remindersEnabled, setRemindersEnabled] = useState(true);
 
-  const totalTracked = parseFloat(summary?.totalLent ?? '0') || 0;
+  const totalLent = parseFloat(summary?.totalLent ?? '0') || 0;
+  const totalBorrowed = parseFloat(summary?.totalBorrowed ?? '0') || 0;
+  const outstandingLent = parseFloat(summary?.outstandingLent ?? summary?.outstandingAmount ?? '0') || 0;
+  const outstandingBorrowed = parseFloat(summary?.outstandingBorrowed ?? '0') || 0;
+
+  const lentLoans = loans.filter((l) => (l.type ?? 'LENT') === 'LENT');
+  const borrowedLoans = loans.filter((l) => l.type === 'BORROWED');
+  const lentCount = lentLoans.length;
+  const borrowedCount = borrowedLoans.length;
+
   const userInitials = user.phone ? user.phone.slice(-2) : 'RM';
 
   const handleConfirmLogout = () => {
@@ -62,9 +75,15 @@ export function AccountScreen({
     if (onExportCsv) {
       onExportCsv();
     } else {
+      if (loans.length === 0) {
+        Alert.alert('Export Ledger', 'No ledger records available to export.');
+        return;
+      }
+      const headers = ['ID', 'Type', 'Counterparty', 'Amount (INR)', 'Due Date', 'Status', 'Notes', 'Created At'];
+      const sampleRow = `\n\nSample:\n${headers.join(',')}\n"${loans[0].id}","${loans[0].type || 'LENT'}","${loans[0].friendName}",₹${loans[0].amount}`;
       Alert.alert(
-        'Export Ledger',
-        `Ready to export ${totalLoansCount} ledger records in standard CSV format.`,
+        'Export Ledger (CSV)',
+        `Ready to export ${loans.length} ledger records (including Lent and Borrowed direction).${sampleRow}`,
         [{ text: 'OK' }]
       );
     }
@@ -113,17 +132,29 @@ export function AccountScreen({
             </View>
           </View>
 
-          {/* Quick Stat Strip */}
+          {/* Quick Stat Strip: Lent vs Borrowed */}
           <View style={styles.statStrip}>
             <View style={styles.statCol}>
-              <Text style={styles.statLabel}>Ledger Activity</Text>
-              <Text style={styles.statValue}>{totalLoansCount} Active Loans</Text>
+              <View style={styles.statKickerRow}>
+                <ArrowUpRightIcon size={11} color="#059669" strokeWidth={2.4} />
+                <Text style={styles.statLabelLent}>Lent Portfolio</Text>
+              </View>
+              <Text style={styles.statValue}>{formatCurrencyCompact(totalLent)}</Text>
+              <Text style={styles.statSubText}>
+                {lentCount} {lentCount === 1 ? 'loan' : 'loans'} · {formatCurrencyCompact(outstandingLent)} to receive
+              </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={[styles.statCol, styles.statColRight]}>
-              <Text style={styles.statLabel}>Capital Tracked</Text>
+              <View style={[styles.statKickerRow, styles.statKickerRowRight]}>
+                <ArrowDownLeftIcon size={11} color="#D97706" strokeWidth={2.4} />
+                <Text style={styles.statLabelBorrowed}>Borrowed Portfolio</Text>
+              </View>
               <Text style={styles.statValueHighlight}>
-                {formatCurrencyCompact(totalTracked)}
+                {formatCurrencyCompact(totalBorrowed)}
+              </Text>
+              <Text style={[styles.statSubText, styles.statSubTextRight]}>
+                {borrowedCount} {borrowedCount === 1 ? 'loan' : 'loans'} · {formatCurrencyCompact(outstandingBorrowed)} to pay
               </Text>
             </View>
           </View>
@@ -393,26 +424,51 @@ const styles = StyleSheet.create({
   statColRight: {
     alignItems: 'flex-end',
   },
-  statLabel: {
-    fontSize: 11,
-    color: Theme.colors.textSecondary,
-    fontWeight: '500',
+  statKickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statKickerRowRight: {
+    justifyContent: 'flex-end',
+  },
+  statLabelLent: {
+    fontSize: 10,
+    color: '#059669',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statLabelBorrowed: {
+    fontSize: 10,
+    color: '#D97706',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   statValue: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: Theme.colors.textPrimary,
     marginTop: 2,
   },
   statValueHighlight: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    color: Theme.colors.primary,
+    color: '#D97706',
     marginTop: 2,
+  },
+  statSubText: {
+    fontSize: 10,
+    color: Theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  statSubTextRight: {
+    textAlign: 'right',
   },
   statDivider: {
     width: 1,
-    height: 24,
+    height: 38,
     backgroundColor: Theme.colors.borderSubtle,
     marginHorizontal: 10,
   },

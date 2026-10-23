@@ -1,5 +1,5 @@
-// Purpose: Renders a modernized loan card matching MiniLedger Stitch specifications.
-// Updated with vector icon components instead of platform emojis.
+// Purpose: Renders a modernized direction-aware loan card matching MiniLedger Stitch specifications.
+// Distinguishes between LENT ("They owe you") and BORROWED ("You owe them") using clear text badges, amounts, and actions.
 // Imported by: src/features/dashboard/DashboardScreen.tsx, src/features/loans/AllLoansScreen.tsx
 
 import React from 'react';
@@ -23,6 +23,7 @@ interface LoanCardProps {
 }
 
 export function LoanCard({ loan, onRepay, onPress, isRepaying = false }: LoanCardProps) {
+  const isLent = loan.type === 'LENT';
   const isOverdue = checkIsOverdue(loan.dueDate, loan.isRepaid);
   const initials = getInitials(loan.friendName);
   const relativeBadge = getRelativeDueLabel(loan.dueDate, loan.isRepaid);
@@ -57,9 +58,46 @@ export function LoanCard({ loan, onRepay, onPress, isRepaying = false }: LoanCar
         isOverdue && styles.cardOverdue,
       ]}
     >
-      {/* Top Header Row */}
-      <View style={styles.topRow}>
-        {/* Borrower Avatar & Details */}
+      {/* Direction & Status Header Bar */}
+      <View style={styles.directionHeaderBar}>
+        <View
+          style={[
+            styles.directionBadge,
+            isLent ? styles.directionBadgeLent : styles.directionBadgeBorrowed,
+          ]}
+        >
+          <Text
+            style={[
+              styles.directionBadgeText,
+              isLent ? styles.directionBadgeTextLent : styles.directionBadgeTextBorrowed,
+            ]}
+          >
+            {isLent ? 'THEY OWE YOU' : 'YOU OWE THEM'}
+          </Text>
+        </View>
+
+        {/* Status Pill Badge */}
+        {loan.isRepaid ? (
+          <View style={styles.badgeRepaid}>
+            <CheckIcon size={11} color={Theme.colors.statusRepaid} strokeWidth={2.2} />
+            <Text style={styles.badgeRepaidText}>Settled</Text>
+          </View>
+        ) : isOverdue ? (
+          <View style={styles.badgeOverdue}>
+            <AlertTriangleIcon size={11} color={Theme.colors.statusOverdue} />
+            <Text style={styles.badgeOverdueText}>{relativeBadge.text}</Text>
+          </View>
+        ) : (
+          <View style={styles.badgePending}>
+            <ClockIcon size={11} color={Theme.colors.statusPending} strokeWidth={1.8} />
+            <Text style={styles.badgePendingText}>{relativeBadge.text}</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Main Details Row */}
+      <View style={styles.mainRow}>
+        {/* Contact Avatar & Name */}
         <View style={styles.borrowerSection}>
           <View style={[styles.avatarCircle, { backgroundColor: avatarBg }]}>
             <Text style={[styles.avatarText, { color: avatarTextColor }]}>{initials}</Text>
@@ -70,42 +108,27 @@ export function LoanCard({ loan, onRepay, onPress, isRepaying = false }: LoanCar
             </Text>
             <Text style={styles.dueDateText}>
               {loan.isRepaid && loan.repaidAt
-                ? `Paid on ${formatDisplayDate(loan.repaidAt.slice(0, 10))}`
+                ? `Settled on ${formatDisplayDate(loan.repaidAt.slice(0, 10))}`
                 : `Due ${formatDisplayDate(loan.dueDate)}`}
             </Text>
           </View>
         </View>
 
-        {/* Amount & Status Badge */}
+        {/* Amount Section */}
         <View style={styles.amountSection}>
           <Text style={[styles.amountText, { color: amountColor }]}>
             {formatCurrencyCompact(loan.amount)}
           </Text>
-
-          {/* Pill Badge */}
-          {loan.isRepaid ? (
-            <View style={styles.badgeRepaid}>
-              <CheckIcon size={12} color={Theme.colors.statusRepaid} strokeWidth={2.2} />
-              <Text style={styles.badgeRepaidText}>Repaid</Text>
-            </View>
-          ) : isOverdue ? (
-            <View style={styles.badgeOverdue}>
-              <AlertTriangleIcon size={12} color={Theme.colors.statusOverdue} />
-              <Text style={styles.badgeOverdueText}>{relativeBadge.text}</Text>
-            </View>
-          ) : (
-            <View style={styles.badgePending}>
-              <ClockIcon size={12} color={Theme.colors.statusPending} strokeWidth={1.8} />
-              <Text style={styles.badgePendingText}>{relativeBadge.text}</Text>
-            </View>
-          )}
+          <Text style={styles.amountDirectionLabel}>
+            {isLent ? 'Receivable' : 'Payable'}
+          </Text>
         </View>
       </View>
 
       {/* Bottom Context Strip */}
       <View style={styles.bottomStrip}>
         <Text style={styles.noteText} numberOfLines={1}>
-          {loan.notes && loan.notes.trim() ? loan.notes : 'Friend loan • UPI'}
+          {loan.notes && loan.notes.trim() ? loan.notes : (isLent ? 'Lent loan • UPI' : 'Borrowed loan • UPI')}
         </Text>
 
         {!loan.isRepaid ? (
@@ -120,14 +143,18 @@ export function LoanCard({ loan, onRepay, onPress, isRepaying = false }: LoanCar
             ) : (
               <View style={styles.repayContent}>
                 <CheckIcon size={12} color={Theme.colors.statusRepaid} strokeWidth={2.2} />
-                <Text style={styles.repayText}>Mark Repaid</Text>
+                <Text style={styles.repayText}>
+                  {isLent ? 'Mark Repaid' : 'Mark as Paid'}
+                </Text>
               </View>
             )}
           </TouchableOpacity>
         ) : (
           <View style={styles.settledBadge}>
             <CheckIcon size={12} color={Theme.colors.statusRepaid} strokeWidth={2.2} />
-            <Text style={styles.settledText}>Settled</Text>
+            <Text style={styles.settledText}>
+              {isLent ? 'Settled (Received)' : 'Settled (Paid)'}
+            </Text>
           </View>
         )}
       </View>
@@ -152,7 +179,41 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.statusOverdueBorder,
     borderWidth: 1.5,
   },
-  topRow: {
+  directionHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  directionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Theme.borderRadius.full,
+    borderWidth: 1,
+  },
+  directionBadgeLent: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+  },
+  directionBadgeBorrowed: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  directionBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  directionBadgeTextLent: {
+    color: '#1D4ED8',
+  },
+  directionBadgeTextBorrowed: {
+    color: '#DC2626',
+  },
+  mainRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -197,6 +258,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.2,
   },
+  amountDirectionLabel: {
+    fontSize: 10,
+    color: Theme.colors.textMuted,
+    fontWeight: '600',
+    marginTop: 1,
+  },
   badgeRepaid: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -204,11 +271,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: Theme.borderRadius.full,
-    marginTop: 3,
     gap: 4,
   },
   badgeRepaidText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: Theme.colors.statusRepaid,
   },
@@ -219,11 +285,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: Theme.borderRadius.full,
-    marginTop: 3,
     gap: 4,
   },
   badgeOverdueText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: Theme.colors.statusOverdue,
   },
@@ -234,11 +299,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: Theme.borderRadius.full,
-    marginTop: 3,
     gap: 4,
   },
   badgePendingText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: Theme.colors.statusPending,
   },
@@ -293,7 +357,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   settledText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: Theme.colors.statusRepaid,
   },

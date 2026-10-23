@@ -484,3 +484,64 @@ export function InfoIcon({ size = 15, color = '#0F172A', strokeWidth = 1.8 }: Ic
   );
 }
 
+// 14. Arrow Up-Right Icon (Outgoing / Lent - They owe you ↗)
+export function ArrowUpRightIcon({ size = 14, color = '#0F172A', strokeWidth = 2 }: IconProps) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      {/* Diagonal Stem */}
+      <View
+        style={{
+          width: size * 0.85,
+          height: strokeWidth,
+          backgroundColor: color,
+          transform: [{ rotate: '-45deg' }],
+        }}
+      />
+      {/* Top and Right Arrowhead */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 1,
+          right: 1,
+          width: size * 0.42,
+          height: size * 0.42,
+          borderTopWidth: strokeWidth,
+          borderRightWidth: strokeWidth,
+          borderColor: color,
+        }}
+      />
+    </View>
+  );
+}
+
+// 15. Arrow Down-Left Icon (Incoming / Borrowed - You owe them ↙)
+export function ArrowDownLeftIcon({ size = 14, color = '#0F172A', strokeWidth = 2 }: IconProps) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      {/* Diagonal Stem */}
+      <View
+        style={{
+          width: size * 0.85,
+          height: strokeWidth,
+          backgroundColor: color,
+          transform: [{ rotate: '-45deg' }],
+        }}
+      />
+      {/* Bottom and Left Arrowhead */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 1,
+          left: 1,
+          width: size * 0.42,
+          height: size * 0.42,
+          borderBottomWidth: strokeWidth,
+          borderLeftWidth: strokeWidth,
+          borderColor: color,
+        }}
+      />
+    </View>
+  );
+}
+
+

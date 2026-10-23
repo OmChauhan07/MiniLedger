@@ -108,12 +108,17 @@ export function DashboardScreen({
       const freshSummary = await fetchSummaryApi();
       setSummary(freshSummary);
 
+      const isLent = targetLoan?.type === 'LENT';
       const debtorName = targetLoan ? targetLoan.friendName : 'Loan';
       const amountStr = targetLoan ? formatCurrencyCompact(targetLoan.amount) : '';
-      setToastMessage(`${amountStr} from ${debtorName} marked repaid!`);
+      setToastMessage(
+        isLent
+          ? `Repayment of ${amountStr} from ${debtorName} marked received!`
+          : `Payment of ${amountStr} to ${debtorName} marked paid!`
+      );
       setToastVisible(true);
     } catch (err: any) {
-      setToastMessage(err.message || 'Failed to mark loan as repaid.');
+      setToastMessage(err.message || 'Failed to update repayment status.');
       setToastVisible(true);
     } finally {
       setRepayingLoanId(null);
@@ -123,7 +128,12 @@ export function DashboardScreen({
   const handleCreateLoan = async (payload: CreateLoanPayload) => {
     await createLoanApi(payload);
     await loadDashboardData();
-    setToastMessage(`Loan of ${formatCurrencyCompact(payload.amount)} saved!`);
+    const isLent = payload.type === 'LENT' || !payload.type;
+    setToastMessage(
+      isLent
+        ? `Lent ${formatCurrencyCompact(payload.amount)} to ${payload.friendName} saved!`
+        : `Borrowed ${formatCurrencyCompact(payload.amount)} from ${payload.friendName} saved!`
+    );
     setToastVisible(true);
   };
 

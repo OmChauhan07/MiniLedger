@@ -7,12 +7,15 @@ export interface User {
   phone: string;
 }
 
+export type LoanDirection = 'LENT' | 'BORROWED';
+
 // Full loan item matching backend persistence and API contract
 export interface Loan {
   id: string;
   friendName: string;
   amount: string;
   dueDate: string;
+  type: LoanDirection;
   isRepaid: boolean;
   repaidAt: string | null;
   createdAt: string;
@@ -21,7 +24,19 @@ export interface Loan {
 
 // Financial summary aggregates returned by GET /api/summary
 export interface Summary {
+  // Lent (Receivables)
   totalLent: string;
+  totalRepaidLent?: string;
+  outstandingLent?: string;
+  overdueReceivable?: string;
+
+  // Borrowed (Payables)
+  totalBorrowed?: string;
+  totalRepaidBorrowed?: string;
+  outstandingBorrowed?: string;
+  overduePayable?: string;
+
+  // Backward-compatible fields
   totalRepaid: string;
   outstandingAmount: string;
   overdueAmount: string;
@@ -38,5 +53,6 @@ export interface CreateLoanPayload {
   friendName: string;
   amount: string;
   dueDate: string;
+  type?: LoanDirection;
   notes?: string;
 }

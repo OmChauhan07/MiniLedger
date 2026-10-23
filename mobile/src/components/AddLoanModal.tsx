@@ -1,4 +1,4 @@
-// Purpose: Modernized Add Loan modal bottom sheet matching MiniLedger Stitch specifications.
+// Purpose: Modernized Add Loan modal bottom sheet with Lent/Borrowed direction selector matching MiniLedger Stitch specifications.
 // Imported by: DashboardScreen.tsx, AllLoansScreen.tsx, App.tsx
 
 import React, { useState } from 'react';
@@ -15,19 +15,27 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
-import { CreateLoanPayload } from '../types/index';
+import { CreateLoanPayload, LoanDirection } from '../types/index';
 import { Theme } from '../theme/index';
+import { WalletIcon, ClockIcon, CheckIcon, AlertTriangleIcon, LockIcon } from './Icons';
 
 interface AddLoanModalProps {
   visible: boolean;
   onClose: () => void;
   onSubmit: (payload: CreateLoanPayload) => Promise<void>;
+  defaultDirection?: LoanDirection;
 }
 
 const PRESET_AMOUNTS = [500, 1000, 2000, 5000];
 const CONTACT_SUGGESTIONS = ['Priya Sharma', 'Karan Dave', 'Sneha Rao', 'Aarav Verma'];
 
-export function AddLoanModal({ visible, onClose, onSubmit }: AddLoanModalProps) {
+export function AddLoanModal({
+  visible,
+  onClose,
+  onSubmit,
+  defaultDirection = 'LENT',
+}: AddLoanModalProps) {
+  const [loanType, setLoanType] = useState<LoanDirection>(defaultDirection);
   const [friendName, setFriendName] = useState('');
   const [amount, setAmount] = useState('5000');
   const [dueDate, setDueDate] = useState(() => {
@@ -54,12 +62,14 @@ export function AddLoanModal({ visible, onClose, onSubmit }: AddLoanModalProps) 
     setDueDate(`${y}-${m}-${day}`);
   };
 
+  const isLent = loanType === 'LENT';
+
   const handleSave = async () => {
     setError(null);
 
     const trimmedName = friendName.trim();
     if (!trimmedName) {
-      setError('Please enter borrower name.');
+      setError(isLent ? "Please enter borrower's name." : "Please enter lender's name.");
       return;
     }
 
@@ -86,6 +96,7 @@ export function AddLoanModal({ visible, onClose, onSubmit }: AddLoanModalProps) 
         friendName: trimmedName,
         amount: trimmedAmount,
         dueDate: trimmedDate,
+        type: loanType,
         notes: notes.trim() ? notes.trim() : undefined,
       });
 
@@ -108,7 +119,7 @@ export function AddLoanModal({ visible, onClose, onSubmit }: AddLoanModalProps) 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.overlay}
       >
-        <View style={[styles.sheetContainer, { maxHeight: height * 0.92 }]}>
+        <View style={[styles.sheetContainer, { maxHeight: height * 0.94 }]}>
           {/* Android Drag Handle */}
           <View style={styles.dragHandleWrapper}>
             <View style={styles.dragHandle} />
@@ -118,16 +129,22 @@ export function AddLoanModal({ visible, onClose, onSubmit }: AddLoanModalProps) 
           <View style={styles.sheetHeader}>
             <View style={styles.headerLeft}>
               <View style={styles.headerIconCircle}>
-                <Text style={styles.headerIconText}>🤝</Text>
+                <WalletIcon size={18} color="#0F172A" />
               </View>
               <View style={styles.headerTitleCol}>
-                <Text style={styles.sheetTitle}>New Peer Loan</Text>
-                <Text style={styles.sheetSubtitle}>Record friendly money lent or borrowed</Text>
+                <Text style={styles.sheetTitle}>
+                  {isLent ? 'Record Lent Money' : 'Record Borrowed Money'}
+                </Text>
+                <Text style={styles.sheetSubtitle}>
+                  {isLent ? 'Receivable • They owe you' : 'Payable • You owe them'}
+                </Text>
               </View>
             </View>
 
-            <View style={styles.unsettledPill}>
-              <Text style={styles.unsettledText}>Unsettled</Text>
+            <View style={[styles.directionBadge, isLent ? styles.directionBadgeLent : styles.directionBadgeBorrowed]}>
+              <Text style={[styles.directionBadgeText, isLent ? styles.directionBadgeTextLent : styles.directionBadgeTextBorrowed]}>
+                {isLent ? 'They Owe You' : 'You Owe Them'}
+              </Text>
             </View>
           </View>
 
@@ -138,23 +155,95 @@ export function AddLoanModal({ visible, onClose, onSubmit }: AddLoanModalProps) 
           >
             {error && (
               <View style={styles.errorBox}>
-                <Text style={styles.errorIcon}>⚠</Text>
+                <AlertTriangleIcon size={14} color="#DC2626" />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
 
-            {/* 1. Borrower Name Field with Suggestions */}
+            {/* 1. Prominent Segmented Direction Selector */}
+            <View style={styles.directionSection}>
+              <Text style={styles.sectionKicker}>CHOOSE LOAN DIRECTION</Text>
+              <View style={styles.segmentedControl}>
+                {/* Lent Option */}
+                <TouchableOpacity
+                  style={[
+                    styles.segmentBtn,
+                    isLent && styles.segmentBtnActive,
+                  ]}
+                  onPress={() => setLoanType('LENT')}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.segmentContent}>
+                    <WalletIcon
+                      size={14}
+                      color={isLent ? '#FFFFFF' : '#0F172A'}
+                    />
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        isLent && styles.segmentTextActive,
+                      ]}
+                    >
+                      I've Lent
+                    </Text>
+                  </View>
+                  <Text style={[styles.segmentSubtext, isLent && styles.segmentSubtextActive]}>
+                    Receivable
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Borrowed Option */}
+                <TouchableOpacity
+                  style={[
+                    styles.segmentBtn,
+                    !isLent && styles.segmentBtnActive,
+                  ]}
+                  onPress={() => setLoanType('BORROWED')}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.segmentContent}>
+                    <ClockIcon
+                      size={14}
+                      color={!isLent ? '#FFFFFF' : '#0F172A'}
+                      strokeWidth={1.8}
+                    />
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        !isLent && styles.segmentTextActive,
+                      ]}
+                    >
+                      I've Borrowed
+                    </Text>
+                  </View>
+                  <Text style={[styles.segmentSubtext, !isLent && styles.segmentSubtextActive]}>
+                    Payable
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.directionExplanation}>
+                <Text style={styles.directionExplanationText}>
+                  {isLent
+                    ? '💡 You gave money to a friend. They owe you and must repay by the due date.'
+                    : '💡 You received money from a friend. You owe them and must pay back by the due date.'}
+                </Text>
+              </View>
+            </View>
+
+            {/* 2. Borrower / Lender Name Field */}
             <View style={styles.fieldCard}>
               <View style={styles.fieldHeaderRow}>
-                <Text style={styles.fieldLabel}>Borrower / Friend Name</Text>
+                <Text style={styles.fieldLabel}>
+                  {isLent ? "Borrower / Friend Name" : "Lender / Friend Name"}
+                </Text>
                 <Text style={styles.requiredLabel}>Required</Text>
               </View>
 
               <View style={styles.textInputBox}>
-                <Text style={styles.inputPrefixIcon}>👤</Text>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="e.g. Aarav Sharma"
+                  placeholder={isLent ? "e.g. Aarav Sharma" : "e.g. Vikram Malhotra"}
                   placeholderTextColor={Theme.colors.textMuted}
                   value={friendName}
                   onChangeText={(val) => {
@@ -184,10 +273,12 @@ export function AddLoanModal({ visible, onClose, onSubmit }: AddLoanModalProps) 
               </View>
             </View>
 
-            {/* 2. Amount Section with Quick Increment Chips */}
+            {/* 3. Amount Section with Quick Increment Chips */}
             <View style={styles.fieldCard}>
               <View style={styles.fieldHeaderRow}>
-                <Text style={styles.fieldLabel}>Loan Principal Amount</Text>
+                <Text style={styles.fieldLabel}>
+                  {isLent ? "Lent Principal Amount" : "Borrowed Principal Amount"}
+                </Text>
                 <Text style={styles.currencyBadge}>INR (₹)</Text>
               </View>
 
@@ -234,11 +325,12 @@ export function AddLoanModal({ visible, onClose, onSubmit }: AddLoanModalProps) 
               </View>
             </View>
 
-            {/* 3. Due Date Section with Quick Buttons */}
+            {/* 4. Due Date Section with Quick Buttons */}
             <View style={styles.fieldCard}>
-              <Text style={styles.fieldLabel}>Target Repayment Date</Text>
+              <Text style={styles.fieldLabel}>
+                {isLent ? "Expected Repayment Date" : "Payment Due Date"}
+              </Text>
               <View style={styles.textInputBox}>
-                <Text style={styles.inputPrefixIcon}>📅</Text>
                 <TextInput
                   style={styles.textInput}
                   placeholder="YYYY-MM-DD"
@@ -276,15 +368,14 @@ export function AddLoanModal({ visible, onClose, onSubmit }: AddLoanModalProps) 
               </View>
 
               <Text style={styles.dateHintText}>
-                ℹ Defaults to 30 days from today. Friendly reminders will be gentle.
+                ℹ Defaults to 30 days from today. Used to compute overdue status.
               </Text>
             </View>
 
-            {/* 4. Purpose / Note Field */}
+            {/* 5. Purpose / Note Field */}
             <View style={styles.fieldCard}>
-              <Text style={styles.fieldLabel}>Reason or Purpose</Text>
+              <Text style={styles.fieldLabel}>Reason or Purpose (Optional)</Text>
               <View style={styles.textInputBox}>
-                <Text style={styles.inputPrefixIcon}>💬</Text>
                 <TextInput
                   style={styles.textInput}
                   placeholder="e.g. Dinner split, concert tickets, trip advance"
@@ -295,35 +386,11 @@ export function AddLoanModal({ visible, onClose, onSubmit }: AddLoanModalProps) 
               </View>
             </View>
 
-            {/* 5. Receipt Attachment Card (from Stitch) */}
-            <TouchableOpacity
-              style={styles.receiptCard}
-              onPress={() => setReceiptSimulated((prev) => !prev)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.receiptIconCircle}>
-                <Text style={styles.receiptGlyph}>{receiptSimulated ? '✓' : '📎'}</Text>
-              </View>
-              <View style={styles.receiptTextCol}>
-                <Text style={styles.receiptTitle}>
-                  {receiptSimulated ? 'Receipt attached cleanly' : 'Attach receipt (Optional)'}
-                </Text>
-                <Text style={styles.receiptSubtitle}>
-                  {receiptSimulated
-                    ? 'upi_receipt_confirmed.png'
-                    : 'Helps resolve friendly disputes cleanly'}
-                </Text>
-              </View>
-              <View style={styles.receiptCameraBadge}>
-                <Text style={styles.cameraIconText}>📷</Text>
-              </View>
-            </TouchableOpacity>
-
             {/* Privacy note */}
             <View style={styles.privacyNote}>
-              <Text style={styles.privacyLock}>🔒</Text>
+              <LockIcon size={13} color={Theme.colors.textMuted} />
               <Text style={styles.privacyText}>
-                All entries are stored securely on your private cloud database.
+                Entries belong strictly to your private authenticated ledger.
               </Text>
             </View>
 
@@ -339,8 +406,10 @@ export function AddLoanModal({ visible, onClose, onSubmit }: AddLoanModalProps) 
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <View style={styles.saveBtnContent}>
-                    <Text style={styles.saveIconText}>💾</Text>
-                    <Text style={styles.saveButtonText}>Save Loan Entry</Text>
+                    <CheckIcon size={14} color="#FFFFFF" strokeWidth={2.2} />
+                    <Text style={styles.saveButtonText}>
+                      {isLent ? 'Record Lent Loan' : 'Record Borrowed Loan'}
+                    </Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -388,7 +457,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: Theme.colors.borderLight,
   },
@@ -406,9 +475,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
   },
-  headerIconText: {
-    fontSize: 18,
-  },
   headerTitleCol: {
     flex: 1,
   },
@@ -422,18 +488,29 @@ const styles = StyleSheet.create({
     color: Theme.colors.textMuted,
     marginTop: 1,
   },
-  unsettledPill: {
-    backgroundColor: Theme.colors.statusPendingTint,
+  directionBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Theme.borderRadius.full,
     borderWidth: 1,
-    borderColor: Theme.colors.statusPendingBorder,
   },
-  unsettledText: {
+  directionBadgeLent: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+  },
+  directionBadgeBorrowed: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  directionBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: Theme.colors.statusPending,
+  },
+  directionBadgeTextLent: {
+    color: '#1D4ED8',
+  },
+  directionBadgeTextBorrowed: {
+    color: '#DC2626',
   },
   scrollBody: {
     padding: 18,
@@ -448,32 +525,92 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Theme.colors.statusOverdueBorder,
     marginBottom: 14,
-  },
-  errorIcon: {
-    fontSize: 14,
-    color: Theme.colors.statusOverdue,
-    marginRight: 6,
+    gap: 8,
   },
   errorText: {
-    flex: 1,
-    color: Theme.colors.statusOverdue,
     fontSize: 12,
+    color: Theme.colors.statusOverdue,
     fontWeight: '600',
+    flex: 1,
+  },
+  directionSection: {
+    marginBottom: 16,
+  },
+  sectionKicker: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Theme.colors.textMuted,
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: Theme.colors.surfaceContainerLow,
+    borderRadius: Theme.borderRadius.lg,
+    padding: 4,
+    gap: 6,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Theme.borderRadius.md,
+  },
+  segmentBtnActive: {
+    backgroundColor: '#0F172A',
+    ...Theme.shadows.sm,
+  },
+  segmentContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  segmentTextActive: {
+    color: '#FFFFFF',
+  },
+  segmentSubtext: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  segmentSubtextActive: {
+    color: '#94A3B8',
+  },
+  directionExplanation: {
+    marginTop: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: Theme.borderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Theme.colors.borderSubtle,
+  },
+  directionExplanationText: {
+    fontSize: 12,
+    color: Theme.colors.textSecondary,
+    lineHeight: 16,
   },
   fieldCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: Theme.borderRadius.lg,
-    padding: 14,
     borderWidth: 1,
     borderColor: Theme.colors.borderSubtle,
+    padding: 14,
     marginBottom: 14,
     ...Theme.shadows.sm,
   },
   fieldHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   fieldLabel: {
     fontSize: 13,
@@ -481,13 +618,14 @@ const styles = StyleSheet.create({
     color: Theme.colors.textPrimary,
   },
   requiredLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    color: Theme.colors.primary,
+    color: Theme.colors.textMuted,
+    textTransform: 'uppercase',
   },
   currencyBadge: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Theme.colors.textMuted,
   },
   textInputBox: {
@@ -495,28 +633,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Theme.colors.surfaceContainerLow,
     borderRadius: Theme.borderRadius.md,
-    height: 48,
     paddingHorizontal: 12,
+    height: 46,
     borderWidth: 1,
     borderColor: Theme.colors.borderSubtle,
   },
-  inputPrefixIcon: {
-    fontSize: 15,
-    marginRight: 8,
-  },
   textInput: {
     flex: 1,
-    height: '100%',
     fontSize: 14,
-    fontWeight: '500',
     color: Theme.colors.textPrimary,
   },
   contactsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    marginTop: 10,
     gap: 6,
+    marginTop: 10,
   },
   recentLabel: {
     fontSize: 11,
@@ -536,62 +668,65 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: '#0F172A',
     alignItems: 'center',
     justifyContent: 'center',
   },
   contactChipInitialText: {
     fontSize: 9,
-    color: '#FFFFFF',
     fontWeight: '700',
+    color: '#FFFFFF',
   },
   contactChipName: {
     fontSize: 11,
+    color: Theme.colors.textSecondary,
     fontWeight: '600',
-    color: Theme.colors.textPrimary,
   },
   amountInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Theme.colors.surfaceContainerLow,
     borderRadius: Theme.borderRadius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    height: 52,
     borderWidth: 1,
     borderColor: Theme.colors.borderSubtle,
-    marginBottom: 10,
   },
   currencySymbol: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
-    color: Theme.colors.primary,
+    color: Theme.colors.textPrimary,
     marginRight: 6,
   },
   amountInput: {
     flex: 1,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: Theme.colors.textPrimary,
   },
   presetGrid: {
     flexDirection: 'row',
     gap: 8,
+    marginTop: 10,
   },
   presetChip: {
     flex: 1,
-    backgroundColor: Theme.colors.surfaceContainerLow,
-    borderRadius: Theme.borderRadius.md,
-    paddingVertical: 8,
+    paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Theme.colors.surfaceContainerLow,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.borderSubtle,
   },
   presetChipSelected: {
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
   },
   presetChipText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: Theme.colors.textPrimary,
+    color: Theme.colors.textSecondary,
   },
   presetChipTextSelected: {
     color: '#FFFFFF',
@@ -603,23 +738,25 @@ const styles = StyleSheet.create({
   },
   datePill: {
     flex: 1,
-    backgroundColor: Theme.colors.surfaceContainerLow,
-    borderRadius: Theme.borderRadius.full,
     paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Theme.colors.surfaceContainerLow,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.borderSubtle,
   },
   datePillPrimary: {
-    backgroundColor: Theme.colors.surfaceContainerHigh,
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
   },
   datePillText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Theme.colors.textSecondary,
   },
   datePillTextPrimary: {
-    color: Theme.colors.primary,
-    fontWeight: '700',
+    color: '#FFFFFF',
   },
   dateHintText: {
     fontSize: 11,
@@ -627,73 +764,28 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 15,
   },
-  receiptCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceContainerLow,
-    borderRadius: Theme.borderRadius.lg,
-    padding: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: Theme.colors.borderSubtle,
-  },
-  receiptIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  receiptGlyph: {
-    fontSize: 16,
-  },
-  receiptTextCol: {
-    flex: 1,
-  },
-  receiptTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Theme.colors.textPrimary,
-  },
-  receiptSubtitle: {
-    fontSize: 11,
-    color: Theme.colors.textMuted,
-    marginTop: 1,
-  },
-  receiptCameraBadge: {
-    padding: 6,
-    borderRadius: Theme.borderRadius.sm,
-    backgroundColor: '#FFFFFF',
-  },
-  cameraIconText: {
-    fontSize: 14,
-  },
   privacyNote: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
     gap: 6,
-  },
-  privacyLock: {
-    fontSize: 11,
+    marginTop: 4,
+    marginBottom: 16,
   },
   privacyText: {
     fontSize: 11,
     color: Theme.colors.textMuted,
   },
   actionsContainer: {
-    gap: 10,
+    gap: 8,
   },
   saveButton: {
-    height: 50,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: '#0F172A',
     borderRadius: Theme.borderRadius.lg,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Theme.shadows.floating,
+    ...Theme.shadows.card,
   },
   saveButtonDisabled: {
     opacity: 0.6,
@@ -701,24 +793,21 @@ const styles = StyleSheet.create({
   saveBtnContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  saveIconText: {
-    fontSize: 16,
+    gap: 6,
   },
   saveButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   cancelBtn: {
-    paddingVertical: 10,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: Theme.colors.textSecondary,
+    color: Theme.colors.textMuted,
   },
 });

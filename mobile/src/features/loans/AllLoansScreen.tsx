@@ -1,4 +1,4 @@
-// Purpose: Screen displaying complete loan directory with search, status filtering, and outstanding summaries matching MiniLedger Stitch specifications.
+// Purpose: Screen displaying complete loan directory with search, direction tabs, status filtering, and direction-aware outstanding summaries matching MiniLedger Stitch specifications.
 // Imported by: App.tsx
 
 import React, { useState, useMemo } from 'react';
@@ -14,14 +14,23 @@ import {
   ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Loan, Summary } from '../../types/index';
+import { Loan, Summary, LoanDirection } from '../../types/index';
 import { LoanCard } from '../../components/LoanCard';
 import { LoanDetailsModal } from '../../components/LoanDetailsModal';
-import { SearchIcon, AlertTriangleIcon, CheckIcon, WalletIcon, ClockIcon } from '../../components/Icons';
+import {
+  SearchIcon,
+  AlertTriangleIcon,
+  CheckIcon,
+  WalletIcon,
+  ClockIcon,
+  ArrowUpRightIcon,
+  ArrowDownLeftIcon,
+} from '../../components/Icons';
 import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 import { formatCurrencyCompact, checkIsOverdue } from '../../utils/format';
 
-type FilterType = 'all' | 'pending' | 'overdue' | 'repaid';
+type DirectionFilter = 'ALL' | 'LENT' | 'BORROWED';
+type StatusFilter = 'all' | 'pending' | 'overdue' | 'repaid';
 
 interface AllLoansScreenProps {
   loans: Loan[];
@@ -41,17 +50,38 @@ export function AllLoansScreen({
   onOpenAddLoan,
 }: AllLoansScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('ALL');
+  const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
   const [repayingId, setRepayingId] = useState<string | null>(null);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
 
-  // Categorize loans
-  const counts = useMemo(() => {
+  // Direction counts across all loans
+  const directionCounts = useMemo(() => {
+    let lent = 0;
+    let borrowed = 0;
+    for (const loan of loans) {
+      if ((loan.type ?? 'LENT') === 'BORROWED') {
+        borrowed++;
+      } else {
+        lent++;
+      }
+    }
+    return { all: loans.length, lent, borrowed };
+  }, [loans]);
+
+  // Loans filtered by the active direction tab
+  const directionFilteredLoans = useMemo(() => {
+    if (directionFilter === 'ALL') return loans;
+    return loans.filter((l) => (l.type ?? 'LENT') === directionFilter);
+  }, [loans, directionFilter]);
+
+  // Categorize status counts for the selected direction
+  const statusCounts = useMemo(() => {
     let pending = 0;
     let overdue = 0;
     let repaid = 0;
 
-    for (const loan of loans) {
+    for (const loan of directionFilteredLoans) {
       if (loan.isRepaid) {
         repaid++;
       } else if (checkIsOverdue(loan.dueDate, false)) {
@@ -61,13 +91,13 @@ export function AllLoansScreen({
       }
     }
 
-    return { all: loans.length, pending, overdue, repaid };
-  }, [loans]);
+    return { all: directionFilteredLoans.length, pending, overdue, repaid };
+  }, [directionFilteredLoans]);
 
-  // Filtered loans list based on search and selected status chip
+  // Filtered loans list based on search, direction, and selected status chip
   const filteredLoans = useMemo(() => {
-    return loans.filter((loan) => {
-      // 1. Filter match
+    return directionFilteredLoans.filter((loan) => {
+      // 1. Status Filter match
       if (activeFilter === 'pending') {
         if (loan.isRepaid || checkIsOverdue(loan.dueDate, false)) return false;
       } else if (activeFilter === 'overdue') {
@@ -76,17 +106,21 @@ export function AllLoansScreen({
         if (!loan.isRepaid) return false;
       }
 
-      // 2. Search match
+      // 2. Search match (friend name, notes, or direction)
       if (searchQuery.trim()) {
         const query = searchQuery.trim().toLowerCase();
         const nameMatch = loan.friendName.toLowerCase().includes(query);
         const notesMatch = loan.notes ? loan.notes.toLowerCase().includes(query) : false;
-        return nameMatch || notesMatch;
+        const typeMatch =
+          (loan.type ?? 'LENT').toLowerCase().includes(query) ||
+          (loan.type === 'BORROWED' && query.includes('borrow')) ||
+          ((loan.type === 'LENT' || !loan.type) && query.includes('lent'));
+        return nameMatch || notesMatch || typeMatch;
       }
 
       return true;
     });
-  }, [loans, activeFilter, searchQuery]);
+  }, [directionFilteredLoans, activeFilter, searchQuery]);
 
   const handleRepay = async (loanId: string) => {
     setRepayingId(loanId);
@@ -97,8 +131,11 @@ export function AllLoansScreen({
     }
   };
 
-  const outstanding = parseFloat(summary?.outstandingAmount ?? '0') || 0;
-  const overdue = parseFloat(summary?.overdueAmount ?? '0') || 0;
+  // Metric values
+  const outstandingLent = parseFloat(summary?.outstandingLent ?? summary?.outstandingAmount ?? '0') || 0;
+  const outstandingBorrowed = parseFloat(summary?.outstandingBorrowed ?? '0') || 0;
+  const overdueReceivable = parseFloat(summary?.overdueReceivable ?? summary?.overdueAmount ?? '0') || 0;
+  const overduePayable = parseFloat(summary?.overduePayable ?? '0') || 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -141,7 +178,7 @@ export function AllLoansScreen({
               </View>
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search friend or note..."
+                placeholder="Search friend, note, lent or borrowed..."
                 placeholderTextColor={Theme.colors.textMuted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -156,18 +193,130 @@ export function AllLoansScreen({
               )}
             </View>
 
-            {/* Filter Chips Horizontal Row */}
+            {/* Direction Selector Tabs (All | Lent | Borrowed) */}
+            <View style={styles.directionSegmentContainer}>
+              <TouchableOpacity
+                onPress={() => setDirectionFilter('ALL')}
+                style={[
+                  styles.directionSegmentBtn,
+                  directionFilter === 'ALL' && styles.directionSegmentBtnActive,
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.directionSegmentText,
+                    directionFilter === 'ALL' && styles.directionSegmentTextActive,
+                  ]}
+                >
+                  All Loans
+                </Text>
+                <View
+                  style={[
+                    styles.directionCountBadge,
+                    directionFilter === 'ALL' && styles.directionCountBadgeActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.directionCountBadgeText,
+                      directionFilter === 'ALL' && styles.directionCountBadgeTextActive,
+                    ]}
+                  >
+                    {directionCounts.all}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setDirectionFilter('LENT')}
+                style={[
+                  styles.directionSegmentBtn,
+                  directionFilter === 'LENT' && styles.directionSegmentBtnActiveLent,
+                ]}
+                activeOpacity={0.7}
+              >
+                <ArrowUpRightIcon
+                  size={12}
+                  color={directionFilter === 'LENT' ? '#FFFFFF' : '#059669'}
+                  strokeWidth={2}
+                />
+                <Text
+                  style={[
+                    styles.directionSegmentText,
+                    directionFilter === 'LENT' && styles.directionSegmentTextActive,
+                  ]}
+                >
+                  Lent
+                </Text>
+                <View
+                  style={[
+                    styles.directionCountBadge,
+                    directionFilter === 'LENT' && styles.directionCountBadgeActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.directionCountBadgeText,
+                      directionFilter === 'LENT' && styles.directionCountBadgeTextActive,
+                    ]}
+                  >
+                    {directionCounts.lent}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setDirectionFilter('BORROWED')}
+                style={[
+                  styles.directionSegmentBtn,
+                  directionFilter === 'BORROWED' && styles.directionSegmentBtnActiveBorrowed,
+                ]}
+                activeOpacity={0.7}
+              >
+                <ArrowDownLeftIcon
+                  size={12}
+                  color={directionFilter === 'BORROWED' ? '#FFFFFF' : '#D97706'}
+                  strokeWidth={2}
+                />
+                <Text
+                  style={[
+                    styles.directionSegmentText,
+                    directionFilter === 'BORROWED' && styles.directionSegmentTextActive,
+                  ]}
+                >
+                  Borrowed
+                </Text>
+                <View
+                  style={[
+                    styles.directionCountBadge,
+                    directionFilter === 'BORROWED' && styles.directionCountBadgeActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.directionCountBadgeText,
+                      directionFilter === 'BORROWED' && styles.directionCountBadgeTextActive,
+                    ]}
+                  >
+                    {directionCounts.borrowed}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Status Filter Chips Row (Counts dynamically reflect selected direction) */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.filterScroll}
             >
-              {/* All Chip */}
+              {/* All Status Chip */}
               <TouchableOpacity
                 onPress={() => setActiveFilter('all')}
                 style={[
                   styles.filterChip,
-                  activeFilter === 'all' && styles.filterChipAllActive,
+                  activeFilter === 'all' ? styles.filterChipAllActive : styles.filterChipInactive,
                 ]}
                 activeOpacity={0.7}
               >
@@ -177,7 +326,7 @@ export function AllLoansScreen({
                     activeFilter === 'all' && styles.chipTextAllActive,
                   ]}
                 >
-                  All
+                  All Status
                 </Text>
                 <View
                   style={[
@@ -191,7 +340,7 @@ export function AllLoansScreen({
                       activeFilter === 'all' && styles.chipCountTextAllActive,
                     ]}
                   >
-                    {counts.all}
+                    {statusCounts.all}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -221,7 +370,7 @@ export function AllLoansScreen({
                   Pending
                 </Text>
                 <View style={styles.chipCountPill}>
-                  <Text style={styles.chipCountText}>{counts.pending}</Text>
+                  <Text style={styles.chipCountText}>{statusCounts.pending}</Text>
                 </View>
               </TouchableOpacity>
 
@@ -249,7 +398,7 @@ export function AllLoansScreen({
                   Overdue
                 </Text>
                 <View style={styles.chipCountPill}>
-                  <Text style={styles.chipCountText}>{counts.overdue}</Text>
+                  <Text style={styles.chipCountText}>{statusCounts.overdue}</Text>
                 </View>
               </TouchableOpacity>
 
@@ -278,35 +427,116 @@ export function AllLoansScreen({
                   Repaid
                 </Text>
                 <View style={styles.chipCountPill}>
-                  <Text style={styles.chipCountText}>{counts.repaid}</Text>
+                  <Text style={styles.chipCountText}>{statusCounts.repaid}</Text>
                 </View>
               </TouchableOpacity>
             </ScrollView>
 
-            {/* Total Outstanding Metric Banner (from Stitch) */}
-            <View style={styles.metricsHeroBanner}>
-              <View style={styles.metricsHeroLeft}>
-                <Text style={styles.metricsHeroKicker}>Total Outstanding</Text>
-                <Text style={styles.metricsHeroAmount}>
-                  {formatCurrencyCompact(outstanding)}
-                </Text>
-                {overdue > 0 && (
+            {/* Direction-Aware Outstanding Metric Banner */}
+            {directionFilter === 'ALL' ? (
+              <View style={styles.dualMetricsBanner}>
+                {/* Left: They Owe You (Lent) */}
+                <View style={styles.dualMetricCol}>
+                  <View style={styles.dualMetricHeaderRow}>
+                    <ArrowUpRightIcon size={13} color="#34D399" strokeWidth={2.4} />
+                    <Text style={styles.dualMetricKickerLent}>They Owe You</Text>
+                  </View>
+                  <Text style={styles.dualMetricAmount}>
+                    {formatCurrencyCompact(outstandingLent)}
+                  </Text>
+                  <Text style={styles.dualMetricSubtext}>
+                    {overdueReceivable > 0
+                      ? `${formatCurrencyCompact(overdueReceivable)} overdue`
+                      : '0 overdue'}
+                  </Text>
+                </View>
+
+                {/* Center Divider */}
+                <View style={styles.dualMetricDivider} />
+
+                {/* Right: You Owe Them (Borrowed) */}
+                <View style={styles.dualMetricCol}>
+                  <View style={styles.dualMetricHeaderRow}>
+                    <ArrowDownLeftIcon size={13} color="#FBBF24" strokeWidth={2.4} />
+                    <Text style={styles.dualMetricKickerBorrowed}>You Owe Them</Text>
+                  </View>
+                  <Text style={styles.dualMetricAmount}>
+                    {formatCurrencyCompact(outstandingBorrowed)}
+                  </Text>
+                  <Text style={styles.dualMetricSubtext}>
+                    {overduePayable > 0
+                      ? `${formatCurrencyCompact(overduePayable)} overdue`
+                      : '0 overdue'}
+                  </Text>
+                </View>
+              </View>
+            ) : directionFilter === 'LENT' ? (
+              <View style={[styles.metricsHeroBanner, styles.bannerLentTheme]}>
+                <View style={styles.metricsHeroLeft}>
+                  <View style={styles.bannerBadgeRow}>
+                    <ArrowUpRightIcon size={12} color="#34D399" strokeWidth={2.4} />
+                    <Text style={styles.metricsHeroKicker}>Total Lent Outstanding</Text>
+                  </View>
+                  <Text style={styles.metricsHeroAmount}>
+                    {formatCurrencyCompact(outstandingLent)}
+                  </Text>
                   <View style={styles.metricsOverdueRow}>
-                    <View style={styles.overduePulseDot} />
+                    <View
+                      style={[
+                        styles.overduePulseDot,
+                        { backgroundColor: overdueReceivable > 0 ? '#FECACA' : '#A7F3D0' },
+                      ]}
+                    />
                     <Text style={styles.metricsOverdueText}>
-                      {formatCurrencyCompact(overdue)} strictly overdue
+                      {overdueReceivable > 0
+                        ? `${formatCurrencyCompact(overdueReceivable)} strictly overdue to receive`
+                        : 'All lent loans are in good standing'}
                     </Text>
                   </View>
-                )}
+                </View>
+                <View style={styles.metricsHeroIconBox}>
+                  <WalletIcon size={24} color="#FFFFFF" strokeWidth={2} />
+                </View>
               </View>
-              <View style={styles.metricsHeroIconBox}>
-                <WalletIcon size={24} color="#FFFFFF" strokeWidth={2} />
+            ) : (
+              <View style={[styles.metricsHeroBanner, styles.bannerBorrowedTheme]}>
+                <View style={styles.metricsHeroLeft}>
+                  <View style={styles.bannerBadgeRow}>
+                    <ArrowDownLeftIcon size={12} color="#FBBF24" strokeWidth={2.4} />
+                    <Text style={styles.metricsHeroKicker}>Total Borrowed (To Pay)</Text>
+                  </View>
+                  <Text style={styles.metricsHeroAmount}>
+                    {formatCurrencyCompact(outstandingBorrowed)}
+                  </Text>
+                  <View style={styles.metricsOverdueRow}>
+                    <View
+                      style={[
+                        styles.overduePulseDot,
+                        { backgroundColor: overduePayable > 0 ? '#FECACA' : '#FED7AA' },
+                      ]}
+                    />
+                    <Text style={styles.metricsOverdueText}>
+                      {overduePayable > 0
+                        ? `${formatCurrencyCompact(overduePayable)} strictly overdue to pay`
+                        : 'All borrowed obligations on track'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.metricsHeroIconBox}>
+                  <WalletIcon size={24} color="#FFFFFF" strokeWidth={2} />
+                </View>
               </View>
-            </View>
+            )}
 
             {/* List Header Count */}
             <View style={styles.resultsHeaderRow}>
-              <Text style={styles.resultsHeading}>Active & Past Records</Text>
+              <Text style={styles.resultsHeading}>
+                {directionFilter === 'ALL'
+                  ? 'All Ledger Records'
+                  : directionFilter === 'LENT'
+                  ? 'Lent Records (Receivables)'
+                  : 'Borrowed Records (Payables)'}
+              </Text>
               <Text style={styles.resultsCountText}>
                 Showing {filteredLoans.length} {filteredLoans.length === 1 ? 'loan' : 'loans'}
               </Text>
@@ -328,7 +558,9 @@ export function AllLoansScreen({
             </View>
             <Text style={styles.emptySearchTitle}>No matching loans found</Text>
             <Text style={styles.emptySearchSubtitle}>
-              Try clearing your search query or selecting a different status filter.
+              {searchQuery.trim()
+                ? 'Try clearing your search query or switching tabs.'
+                : `No ${directionFilter !== 'ALL' ? directionFilter.toLowerCase() : ''} loans match the selected "${activeFilter}" filter.`}
             </Text>
           </View>
         }
@@ -413,7 +645,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: Theme.colors.borderSubtle,
-    marginBottom: 14,
+    marginBottom: 12,
     ...Theme.shadows.sm,
   },
   searchIconWrapper: {
@@ -434,6 +666,62 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Theme.colors.textMuted,
     fontWeight: '700',
+  },
+  directionSegmentContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: Theme.borderRadius.lg,
+    padding: 4,
+    marginBottom: 12,
+    gap: 4,
+  },
+  directionSegmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: Theme.borderRadius.md,
+    gap: 5,
+  },
+  directionSegmentBtnActive: {
+    backgroundColor: Theme.colors.primary,
+    ...Theme.shadows.sm,
+  },
+  directionSegmentBtnActiveLent: {
+    backgroundColor: '#064E3B',
+    ...Theme.shadows.sm,
+  },
+  directionSegmentBtnActiveBorrowed: {
+    backgroundColor: '#78350F',
+    ...Theme.shadows.sm,
+  },
+  directionSegmentText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Theme.colors.textSecondary,
+  },
+  directionSegmentTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  directionCountBadge: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: Theme.borderRadius.full,
+  },
+  directionCountBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  directionCountBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Theme.colors.textSecondary,
+  },
+  directionCountBadgeTextActive: {
+    color: '#FFFFFF',
   },
   filterScroll: {
     flexDirection: 'row',
@@ -469,9 +757,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Theme.colors.statusRepaidBorder,
   },
-  chipGlyph: {
-    fontSize: 12,
-  },
   chipText: {
     fontSize: 13,
     fontWeight: '600',
@@ -506,6 +791,55 @@ const styles = StyleSheet.create({
   chipCountTextAllActive: {
     color: '#FFFFFF',
   },
+  dualMetricsBanner: {
+    backgroundColor: Theme.colors.primary,
+    borderRadius: Theme.borderRadius.xl,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    ...Theme.shadows.floating,
+  },
+  dualMetricCol: {
+    flex: 1,
+  },
+  dualMetricHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  dualMetricKickerLent: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#6EE7B7',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  dualMetricKickerBorrowed: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FCD34D',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  dualMetricAmount: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
+  },
+  dualMetricSubtext: {
+    fontSize: 11,
+    color: Theme.colors.onPrimaryContainer,
+    marginTop: 2,
+  },
+  dualMetricDivider: {
+    width: 1,
+    height: 48,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginHorizontal: 12,
+  },
   metricsHeroBanner: {
     backgroundColor: Theme.colors.primaryContainer,
     borderRadius: Theme.borderRadius.xl,
@@ -515,6 +849,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
     ...Theme.shadows.floating,
+  },
+  bannerLentTheme: {
+    backgroundColor: '#064E3B',
+  },
+  bannerBorrowedTheme: {
+    backgroundColor: '#78350F',
+  },
+  bannerBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   metricsHeroLeft: {
     flex: 1,
@@ -543,7 +888,6 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#FECACA',
   },
   metricsOverdueText: {
     fontSize: 12,
@@ -556,9 +900,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  metricsHeroIconText: {
-    fontSize: 24,
   },
   resultsHeaderRow: {
     flexDirection: 'row',

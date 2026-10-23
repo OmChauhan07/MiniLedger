@@ -1,4 +1,4 @@
-// Purpose: Modal displaying full loan details, timeline metrics, and repayment actions matching MiniLedger Stitch specifications.
+// Purpose: Modal displaying full loan details, timeline metrics, direction awareness, and repayment actions matching MiniLedger Stitch specifications.
 // Imported by: DashboardScreen.tsx, AllLoansScreen.tsx
 
 import React, { useState } from 'react';
@@ -11,6 +11,7 @@ import {
   ScrollView,
   ActivityIndicator,
   useWindowDimensions,
+  Alert,
   Platform,
 } from 'react-native';
 import { Loan } from '../types/index';
@@ -22,6 +23,7 @@ import {
   getRelativeDueLabel,
   getInitials,
 } from '../utils/format';
+import { CheckIcon, AlertTriangleIcon, ClockIcon, WalletIcon } from './Icons';
 
 interface LoanDetailsModalProps {
   loan: Loan | null;
@@ -37,24 +39,37 @@ export function LoanDetailsModal({
   onRepay,
 }: LoanDetailsModalProps) {
   const [isRepaying, setIsRepaying] = useState(false);
-  const [previewRepaid, setPreviewRepaid] = useState(false);
   const { height } = useWindowDimensions();
 
   if (!loan) return null;
 
-  const isActuallyRepaid = loan.isRepaid || previewRepaid;
+  const isLent = loan.type === 'LENT';
+  const isActuallyRepaid = loan.isRepaid;
   const isOverdue = !isActuallyRepaid && checkIsOverdue(loan.dueDate, false);
   const relativeBadge = getRelativeDueLabel(loan.dueDate, isActuallyRepaid);
   const initials = getInitials(loan.friendName);
 
-  const handleMarkRepaid = async () => {
-    setIsRepaying(true);
-    try {
-      await onRepay(loan.id);
-      onClose();
-    } finally {
-      setIsRepaying(false);
-    }
+  const confirmAndRepay = () => {
+    const title = isLent ? 'Confirm Repayment' : 'Confirm Payment';
+    const message = isLent
+      ? `Confirm that you have received full repayment of ${formatCurrencyCompact(loan.amount)} from ${loan.friendName}?`
+      : `Confirm that you have paid ${formatCurrencyCompact(loan.amount)} to ${loan.friendName}?`;
+
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: isLent ? 'Mark Repaid' : 'Mark as Paid',
+        onPress: async () => {
+          setIsRepaying(true);
+          try {
+            await onRepay(loan.id);
+            onClose();
+          } finally {
+            setIsRepaying(false);
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -81,80 +96,63 @@ export function LoanDetailsModal({
             contentContainerStyle={styles.scrollBody}
             showsVerticalScrollIndicator={false}
           >
-            {/* Interactive View Toggle Pill */}
-            <View style={styles.togglePillContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.toggleTab,
-                  !previewRepaid && styles.toggleTabActive,
-                ]}
-                onPress={() => setPreviewRepaid(false)}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[
-                    styles.toggleDot,
-                    { backgroundColor: isOverdue ? Theme.colors.statusOverdue : Theme.colors.statusPending },
-                  ]}
-                />
+            {/* Direction Pill Banner */}
+            <View
+              style={[
+                styles.directionPillBanner,
+                isLent ? styles.directionPillBannerLent : styles.directionPillBannerBorrowed,
+              ]}
+            >
+              <View style={styles.directionPillContent}>
+                {isLent ? (
+                  <WalletIcon size={14} color="#1D4ED8" />
+                ) : (
+                  <ClockIcon size={14} color="#DC2626" strokeWidth={1.8} />
+                )}
                 <Text
                   style={[
-                    styles.toggleTabText,
-                    !previewRepaid && styles.toggleTabTextActive,
+                    styles.directionPillText,
+                    isLent ? styles.directionPillTextLent : styles.directionPillTextBorrowed,
                   ]}
                 >
-                  {isOverdue ? 'Overdue Status' : 'Pending Status'}
+                  {isLent ? 'LENT • THEY OWE YOU' : 'BORROWED • YOU OWE THEM'}
                 </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.toggleTab,
-                  previewRepaid && styles.toggleTabActive,
-                ]}
-                onPress={() => setPreviewRepaid(true)}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[
-                    styles.toggleDot,
-                    { backgroundColor: Theme.colors.statusRepaid },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.toggleTabText,
-                    previewRepaid && styles.toggleTabTextActive,
-                  ]}
-                >
-                  Settled Preview
-                </Text>
-              </TouchableOpacity>
+              </View>
+              <Text style={styles.directionPillSubtext}>
+                {isLent ? 'Receivable' : 'Payable'}
+              </Text>
             </View>
 
             {/* Profile & Amount Card */}
             <View style={styles.heroCard}>
-              {/* Settled Stamp (conditionally displayed) */}
+              {/* Settled Stamp */}
               {isActuallyRepaid && (
                 <View style={styles.settledStamp}>
-                  <Text style={styles.settledStampText}>✓ SETTLED</Text>
+                  <CheckIcon size={12} color="#15803D" strokeWidth={2.4} />
+                  <Text style={styles.settledStampText}>
+                    {isLent ? 'SETTLED (RECEIVED)' : 'SETTLED (PAID)'}
+                  </Text>
                 </View>
               )}
 
-              {/* Borrower Info Row */}
+              {/* Contact Info Row */}
               <View style={styles.borrowerRow}>
                 <View style={styles.avatarCircle}>
                   <Text style={styles.avatarText}>{initials}</Text>
                 </View>
                 <View style={styles.borrowerCol}>
                   <Text style={styles.borrowerName}>{loan.friendName}</Text>
-                  <Text style={styles.borrowerSubtitle}>Personal Lending</Text>
+                  <Text style={styles.borrowerSubtitle}>
+                    {isLent ? 'Borrower • Friendly Loan' : 'Lender • Friendly Loan'}
+                  </Text>
                 </View>
               </View>
 
-              {/* Lent Amount Hero */}
+              {/* Amount Hero Box */}
               <View style={styles.amountHeroBox}>
-                <Text style={styles.amountHeroKicker}>LENT AMOUNT</Text>
+                <Text style={styles.amountHeroKicker}>
+                  {isLent ? 'LENT AMOUNT (RECEIVABLE)' : 'BORROWED AMOUNT (PAYABLE)'}
+                </Text>
                 <Text style={styles.amountHeroValue}>
                   {formatCurrencyCompact(loan.amount)}
                 </Text>
@@ -163,34 +161,36 @@ export function LoanDetailsModal({
               {/* Dynamic Status Banner */}
               {isActuallyRepaid ? (
                 <View style={styles.repaidBanner}>
-                  <Text style={styles.bannerIconText}>✓</Text>
+                  <CheckIcon size={14} color={Theme.colors.statusRepaid} strokeWidth={2.2} />
                   <View style={styles.bannerTextCol}>
                     <Text style={styles.repaidBannerHeading}>Fully Settled</Text>
                     <Text style={styles.bannerSubtext}>
                       {loan.repaidAt
-                        ? `Payment confirmed on ${formatDisplayDate(loan.repaidAt.slice(0, 10))}`
+                        ? `Payment recorded on ${formatDisplayDate(loan.repaidAt.slice(0, 10))}`
                         : 'Settlement confirmed via UPI transfer'}
                     </Text>
                   </View>
                 </View>
               ) : isOverdue ? (
                 <View style={styles.overdueBanner}>
-                  <Text style={styles.bannerIconText}>⚠</Text>
+                  <AlertTriangleIcon size={14} color={Theme.colors.statusOverdue} />
                   <View style={styles.bannerTextCol}>
                     <Text style={styles.overdueBannerHeading}>
                       {relativeBadge.text} • Priority
                     </Text>
                     <Text style={styles.bannerSubtext}>
-                      Target due date was {formatDisplayDate(loan.dueDate)}
+                      {isLent
+                        ? `Expected repayment was due on ${formatDisplayDate(loan.dueDate)}`
+                        : `Payment due date was ${formatDisplayDate(loan.dueDate)}`}
                     </Text>
                   </View>
                 </View>
               ) : (
                 <View style={styles.pendingBanner}>
-                  <Text style={styles.bannerIconText}>⏱</Text>
+                  <ClockIcon size={14} color={Theme.colors.statusPending} strokeWidth={1.8} />
                   <View style={styles.bannerTextCol}>
                     <Text style={styles.pendingBannerHeading}>
-                      Active Loan • {relativeBadge.text}
+                      {isLent ? 'Active Receivable' : 'Active Payable'} • {relativeBadge.text}
                     </Text>
                     <Text style={styles.bannerSubtext}>
                       Due on {formatDisplayDate(loan.dueDate)}
@@ -200,22 +200,18 @@ export function LoanDetailsModal({
               )}
             </View>
 
-            {/* Key Metrics Bento (from Stitch) */}
+            {/* Key Metrics Bento */}
             <View style={styles.metricsGrid}>
               <View style={styles.metricCard}>
-                <View style={styles.metricIconBox}>
-                  <Text style={styles.metricGlyph}>💳</Text>
-                </View>
                 <View style={styles.metricTextCol}>
-                  <Text style={styles.metricLabel}>Channel</Text>
-                  <Text style={styles.metricValue}>UPI / Net Banking</Text>
+                  <Text style={styles.metricLabel}>Direction</Text>
+                  <Text style={styles.metricValue}>
+                    {isLent ? "I've Lent" : "I've Borrowed"}
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.metricCard}>
-                <View style={styles.metricIconBox}>
-                  <Text style={styles.metricGlyph}>🗓</Text>
-                </View>
                 <View style={styles.metricTextCol}>
                   <Text style={styles.metricLabel}>Timeline</Text>
                   <Text style={styles.metricValue}>
@@ -232,7 +228,7 @@ export function LoanDetailsModal({
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Purpose</Text>
                 <Text style={styles.breakdownValue}>
-                  {loan.notes && loan.notes.trim() ? loan.notes : 'Friend loan split'}
+                  {loan.notes && loan.notes.trim() ? loan.notes : (isLent ? 'Friend loan' : 'Borrowed advance')}
                 </Text>
               </View>
 
@@ -267,14 +263,19 @@ export function LoanDetailsModal({
               {!loan.isRepaid && (
                 <TouchableOpacity
                   style={[styles.markRepaidBtn, isRepaying && styles.markRepaidBtnDisabled]}
-                  onPress={handleMarkRepaid}
+                  onPress={confirmAndRepay}
                   disabled={isRepaying}
                   activeOpacity={0.85}
                 >
                   {isRepaying ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.markRepaidBtnText}>✓ Mark as Fully Repaid</Text>
+                    <View style={styles.markRepaidBtnContent}>
+                      <CheckIcon size={14} color="#FFFFFF" strokeWidth={2.2} />
+                      <Text style={styles.markRepaidBtnText}>
+                        {isLent ? 'Mark as Repaid (Received)' : 'Mark as Paid'}
+                      </Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               )}
@@ -349,75 +350,82 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   closeBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
     color: Theme.colors.textSecondary,
+    fontWeight: '700',
   },
   scrollBody: {
     padding: 18,
     paddingBottom: 36,
   },
-  togglePillContainer: {
-    flexDirection: 'row',
-    backgroundColor: Theme.colors.surfaceContainerLow,
-    borderRadius: Theme.borderRadius.full,
-    padding: 4,
-    marginBottom: 16,
-  },
-  toggleTab: {
-    flex: 1,
+  directionPillBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: Theme.borderRadius.full,
+    borderRadius: Theme.borderRadius.lg,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  directionPillBannerLent: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+  },
+  directionPillBannerBorrowed: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  directionPillContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
-  toggleTabActive: {
-    backgroundColor: '#FFFFFF',
-    ...Theme.shadows.sm,
+  directionPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
-  toggleDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+  directionPillTextLent: {
+    color: '#1D4ED8',
   },
-  toggleTabText: {
-    fontSize: 12,
+  directionPillTextBorrowed: {
+    color: '#DC2626',
+  },
+  directionPillSubtext: {
+    fontSize: 11,
     fontWeight: '600',
-    color: Theme.colors.textMuted,
-  },
-  toggleTabTextActive: {
-    color: Theme.colors.textPrimary,
-    fontWeight: '700',
+    color: Theme.colors.textSecondary,
   },
   heroCard: {
-    position: 'relative',
-    backgroundColor: Theme.colors.surfaceCard,
+    backgroundColor: '#FFFFFF',
     borderRadius: Theme.borderRadius.xl,
     padding: 16,
     borderWidth: 1,
     borderColor: Theme.colors.borderSubtle,
+    position: 'relative',
     marginBottom: 14,
-    ...Theme.shadows.card,
+    ...Theme.shadows.sm,
   },
   settledStamp: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     position: 'absolute',
     top: 14,
     right: 14,
-    backgroundColor: Theme.colors.statusRepaidTint,
+    backgroundColor: '#DCFCE7',
     borderWidth: 1,
-    borderColor: Theme.colors.statusRepaidBorder,
+    borderColor: '#86EFAC',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: Theme.borderRadius.sm,
-    transform: [{ rotate: '8deg' }],
+    borderRadius: Theme.borderRadius.full,
+    zIndex: 2,
   },
   settledStampText: {
     fontSize: 10,
     fontWeight: '800',
-    color: Theme.colors.statusRepaid,
-    letterSpacing: 0.5,
+    color: '#15803D',
   },
   borrowerRow: {
     flexDirection: 'row',
@@ -425,10 +433,10 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   avatarCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: Theme.colors.primaryContainer,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -436,13 +444,13 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: Theme.colors.textPrimary,
   },
   borrowerCol: {
     flex: 1,
   },
   borrowerName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: Theme.colors.textPrimary,
   },
@@ -452,55 +460,53 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   amountHeroBox: {
-    alignItems: 'center',
     backgroundColor: Theme.colors.surfaceContainerLow,
     borderRadius: Theme.borderRadius.lg,
-    paddingVertical: 14,
+    padding: 14,
     marginBottom: 14,
   },
   amountHeroKicker: {
     fontSize: 10,
     fontWeight: '700',
     color: Theme.colors.textMuted,
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
   },
   amountHeroValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: Theme.colors.primary,
-    letterSpacing: -0.5,
-    marginTop: 2,
+    fontSize: 26,
+    fontWeight: '800',
+    color: Theme.colors.textPrimary,
+    marginTop: 4,
+    letterSpacing: -0.4,
   },
   repaidBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Theme.colors.statusRepaidTint,
     borderRadius: Theme.borderRadius.md,
-    padding: 12,
+    padding: 10,
     borderWidth: 1,
     borderColor: Theme.colors.statusRepaidBorder,
+    gap: 8,
   },
   overdueBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Theme.colors.statusOverdueTint,
     borderRadius: Theme.borderRadius.md,
-    padding: 12,
+    padding: 10,
     borderWidth: 1,
     borderColor: Theme.colors.statusOverdueBorder,
+    gap: 8,
   },
   pendingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Theme.colors.statusPendingTint,
     borderRadius: Theme.borderRadius.md,
-    padding: 12,
+    padding: 10,
     borderWidth: 1,
     borderColor: Theme.colors.statusPendingBorder,
-  },
-  bannerIconText: {
-    fontSize: 16,
-    marginRight: 10,
+    gap: 8,
   },
   bannerTextCol: {
     flex: 1,
@@ -523,57 +529,43 @@ const styles = StyleSheet.create({
   bannerSubtext: {
     fontSize: 11,
     color: Theme.colors.textSecondary,
-    marginTop: 1,
+    marginTop: 2,
   },
   metricsGrid: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     marginBottom: 14,
   },
   metricCard: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceCard,
+    backgroundColor: '#FFFFFF',
     borderRadius: Theme.borderRadius.lg,
     padding: 12,
     borderWidth: 1,
     borderColor: Theme.colors.borderSubtle,
     ...Theme.shadows.sm,
   },
-  metricIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: Theme.borderRadius.sm,
-    backgroundColor: Theme.colors.surfaceContainerLow,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  metricGlyph: {
-    fontSize: 14,
-  },
   metricTextCol: {
     flex: 1,
   },
   metricLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
     color: Theme.colors.textMuted,
   },
   metricValue: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: Theme.colors.textPrimary,
-    marginTop: 1,
+    marginTop: 2,
   },
   breakdownCard: {
-    backgroundColor: Theme.colors.surfaceCard,
+    backgroundColor: '#FFFFFF',
     borderRadius: Theme.borderRadius.xl,
     padding: 16,
     borderWidth: 1,
     borderColor: Theme.colors.borderSubtle,
-    marginBottom: 18,
+    marginBottom: 16,
     ...Theme.shadows.sm,
   },
   breakdownHeading: {
@@ -597,14 +589,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: Theme.colors.textPrimary,
-    maxWidth: '60%',
-    textAlign: 'right',
   },
   breakdownValueMuted: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     color: Theme.colors.textMuted,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   breakdownDivider: {
     height: 1,
@@ -612,18 +601,23 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   actionsContainer: {
-    gap: 10,
+    gap: 8,
   },
   markRepaidBtn: {
-    height: 48,
-    backgroundColor: Theme.colors.statusRepaid,
+    backgroundColor: '#0F172A',
     borderRadius: Theme.borderRadius.lg,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Theme.shadows.sm,
+    ...Theme.shadows.card,
   },
   markRepaidBtnDisabled: {
     opacity: 0.6,
+  },
+  markRepaidBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   markRepaidBtnText: {
     fontSize: 14,
@@ -631,13 +625,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   closeActionBtn: {
-    paddingVertical: 10,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeActionBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: Theme.colors.textSecondary,
+    color: Theme.colors.textMuted,
   },
 });

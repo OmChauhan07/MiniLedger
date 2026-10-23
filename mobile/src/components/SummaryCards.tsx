@@ -1,5 +1,5 @@
-// Purpose: Renders the 2x2 Bento Metric Grid matching MiniLedger Stitch specifications.
-// Updated with white-and-black outline UI for marked KPI cards and vector icon components.
+// Purpose: Renders the direction-aware Bento Metric Grid matching MiniLedger Stitch specifications.
+// Clearly separates Lent (Receivables) from Borrowed (Payables), including separate outstanding and overdue amounts.
 // Imported by: src/features/dashboard/DashboardScreen.tsx
 
 import React from 'react';
@@ -20,98 +20,119 @@ export function SummaryCards({
   totalLoansCount = 0,
   overdueLoansCount = 0,
 }: SummaryCardsProps) {
-  const lent = parseFloat(summary?.totalLent ?? '0') || 0;
-  const repaid = parseFloat(summary?.totalRepaid ?? '0') || 0;
-  const outstanding = parseFloat(summary?.outstandingAmount ?? '0') || 0;
-  const overdue = parseFloat(summary?.overdueAmount ?? '0') || 0;
+  // Lent (Receivables)
+  const lentOutstanding = parseFloat(summary?.outstandingLent ?? summary?.outstandingAmount ?? '0') || 0;
+  const overdueReceivable = parseFloat(summary?.overdueReceivable ?? summary?.overdueAmount ?? '0') || 0;
+  const totalLent = parseFloat(summary?.totalLent ?? '0') || 0;
 
-  const recoveryPercent = lent > 0 ? ((repaid / lent) * 100).toFixed(1) : '0';
-  const hasOverdue = overdue > 0;
+  // Borrowed (Payables)
+  const borrowedOutstanding = parseFloat(summary?.outstandingBorrowed ?? '0') || 0;
+  const overduePayable = parseFloat(summary?.overduePayable ?? '0') || 0;
+  const totalBorrowed = parseFloat(summary?.totalBorrowed ?? '0') || 0;
+
+  const hasOverdueReceivable = overdueReceivable > 0;
+  const hasOverduePayable = overduePayable > 0;
 
   return (
     <View style={styles.gridContainer}>
-      {/* Row 1: Total Lent & Total Repaid (White Cards with Royal Black Outlines) */}
+      {/* Row 1: Outstanding Balances (Lent vs Borrowed) */}
       <View style={styles.gridRow}>
-        {/* 1. Total Lent (White Card + Bold Black Outline) */}
+        {/* 1. Lent Outstanding (They owe you) */}
         <View style={styles.cardLent}>
           <View style={styles.cardHeader}>
-            <Text style={styles.labelNeutral}>Total Lent</Text>
+            <View>
+              <Text style={styles.kickerLent}>RECEIVABLE</Text>
+              <Text style={styles.labelNeutral}>Lent Outstanding</Text>
+            </View>
             <View style={styles.iconBoxNeutral}>
               <WalletIcon size={16} color="#0F172A" />
             </View>
           </View>
-          <View>
-            <Text style={styles.amountNeutral}>{formatCurrencyCompact(lent)}</Text>
-            <Text style={styles.subtextNeutral}>
-              {totalLoansCount > 0 ? `${totalLoansCount} total loans` : 'All records'}
-            </Text>
+          <View style={styles.cardBottom}>
+            <Text style={styles.amountNeutral}>{formatCurrencyCompact(lentOutstanding)}</Text>
+            <Text style={styles.subtextNeutral}>They owe you</Text>
           </View>
         </View>
 
-        {/* 2. Total Repaid (White Card + Bold Black Outline) */}
-        <View style={styles.cardRepaid}>
+        {/* 2. Borrowed Outstanding (You owe them) */}
+        <View style={styles.cardBorrowed}>
           <View style={styles.cardHeader}>
-            <Text style={styles.labelRepaid}>Total Repaid</Text>
-            <View style={styles.iconBoxRepaid}>
-              <CheckIcon size={14} color="#0F172A" strokeWidth={2.2} />
+            <View>
+              <Text style={styles.kickerBorrowed}>PAYABLE</Text>
+              <Text style={styles.labelNeutral}>Borrowed Outstanding</Text>
+            </View>
+            <View style={styles.iconBoxBorrowed}>
+              <ClockIcon size={16} color="#0F172A" strokeWidth={1.8} />
             </View>
           </View>
-          <View>
-            <Text style={styles.amountRepaid}>{formatCurrencyCompact(repaid)}</Text>
-            <View style={styles.repaidPillRow}>
-              <View style={styles.repaidBadgePill}>
-                <Text style={styles.repaidBadgeText}>+{recoveryPercent}%</Text>
-              </View>
-              <Text style={styles.subtextRepaid}>recovered</Text>
-            </View>
+          <View style={styles.cardBottom}>
+            <Text style={styles.amountNeutral}>{formatCurrencyCompact(borrowedOutstanding)}</Text>
+            <Text style={styles.subtextNeutral}>You owe them</Text>
           </View>
         </View>
       </View>
 
-      {/* Row 2: Outstanding & Overdue */}
+      {/* Row 2: Overdue Obligations (Receivable vs Payable) */}
       <View style={styles.gridRow}>
-        {/* 3. Outstanding (Royal Black Obsidian Hero Card) */}
-        <View style={styles.cardOutstanding}>
+        {/* 3. Overdue Receivable */}
+        <View style={[styles.cardAlert, !hasOverdueReceivable && styles.cardAlertClear]}>
           <View style={styles.cardHeader}>
-            <Text style={styles.labelOutstanding}>Outstanding</Text>
-            <View style={styles.iconBoxOutstanding}>
-              <ClockIcon size={15} color="#FFFFFF" strokeWidth={1.8} />
-            </View>
-          </View>
-          <View>
-            <Text style={styles.amountOutstanding}>{formatCurrencyCompact(outstanding)}</Text>
-            <Text style={styles.subtextOutstanding}>Pending collection</Text>
-          </View>
-        </View>
-
-        {/* 4. Overdue (Crisp White Alert Card) */}
-        <View style={[styles.cardOverdue, !hasOverdue && styles.cardOverdueClear]}>
-          <View style={styles.cardHeader}>
-            <Text style={[styles.labelOverdue, !hasOverdue && styles.labelOverdueClear]}>
-              Overdue
+            <Text style={[styles.labelAlert, !hasOverdueReceivable && styles.labelAlertClear]}>
+              Overdue to You
             </Text>
-            <View style={[styles.iconBoxOverdue, !hasOverdue && styles.iconBoxOverdueClear]}>
-              {hasOverdue ? (
-                <AlertTriangleIcon size={14} color="#DC2626" />
+            <View style={[styles.iconBoxAlert, !hasOverdueReceivable && styles.iconBoxAlertClear]}>
+              {hasOverdueReceivable ? (
+                <AlertTriangleIcon size={13} color="#DC2626" />
               ) : (
                 <CheckIcon size={12} color="#0F172A" />
               )}
             </View>
           </View>
-          <View>
-            <Text style={[styles.amountOverdue, !hasOverdue && styles.amountOverdueClear]}>
-              {formatCurrencyCompact(overdue)}
+          <View style={styles.cardBottom}>
+            <Text style={[styles.amountAlert, !hasOverdueReceivable && styles.amountAlertClear]}>
+              {formatCurrencyCompact(overdueReceivable)}
             </Text>
-            {hasOverdue ? (
-              <View style={styles.overdueBadgePill}>
-                <Text style={styles.overdueBadgeText}>
-                  {overdueLoansCount > 0 ? `${overdueLoansCount} loans overdue` : 'Action required'}
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.subtextNeutral}>All loans on schedule</Text>
-            )}
+            <Text style={styles.subtextAlert}>
+              {hasOverdueReceivable ? 'Action required' : 'No overdue records'}
+            </Text>
           </View>
+        </View>
+
+        {/* 4. Overdue Payable */}
+        <View style={[styles.cardAlert, !hasOverduePayable && styles.cardAlertClear]}>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.labelAlert, !hasOverduePayable && styles.labelAlertClear]}>
+              Overdue from You
+            </Text>
+            <View style={[styles.iconBoxAlert, !hasOverduePayable && styles.iconBoxAlertClear]}>
+              {hasOverduePayable ? (
+                <AlertTriangleIcon size={13} color="#DC2626" />
+              ) : (
+                <CheckIcon size={12} color="#0F172A" />
+              )}
+            </View>
+          </View>
+          <View style={styles.cardBottom}>
+            <Text style={[styles.amountAlert, !hasOverduePayable && styles.amountAlertClear]}>
+              {formatCurrencyCompact(overduePayable)}
+            </Text>
+            <Text style={styles.subtextAlert}>
+              {hasOverduePayable ? 'Pay back immediately' : 'Payments on schedule'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Bottom Summary Strip: Cumulative Totals */}
+      <View style={styles.cumulativeTotalsStrip}>
+        <View style={styles.totalCol}>
+          <Text style={styles.totalColLabel}>Total Lent (Historical)</Text>
+          <Text style={styles.totalColValue}>{formatCurrencyCompact(totalLent)}</Text>
+        </View>
+        <View style={styles.totalColDivider} />
+        <View style={[styles.totalCol, styles.totalColRight]}>
+          <Text style={styles.totalColLabel}>Total Borrowed (Historical)</Text>
+          <Text style={styles.totalColValue}>{formatCurrencyCompact(totalBorrowed)}</Text>
         </View>
       </View>
     </View>
@@ -127,7 +148,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  // Total Lent: White card with crisp Black Outline
   cardLent: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -136,11 +156,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#0F172A',
     justifyContent: 'space-between',
-    minHeight: 104,
+    minHeight: 112,
     ...Theme.shadows.card,
   },
-  // Total Repaid: White card with crisp Black Outline
-  cardRepaid: {
+  cardBorrowed: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: Theme.borderRadius.xl,
@@ -148,176 +167,146 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#0F172A',
     justifyContent: 'space-between',
-    minHeight: 104,
+    minHeight: 112,
     ...Theme.shadows.card,
-  },
-  cardOutstanding: {
-    flex: 1,
-    backgroundColor: Theme.colors.primary, // #0F172A Obsidian
-    borderRadius: Theme.borderRadius.xl,
-    padding: 14,
-    justifyContent: 'space-between',
-    minHeight: 104,
-    ...Theme.shadows.floating,
-  },
-  cardOverdue: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: Theme.borderRadius.xl,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: Theme.colors.statusOverdueBorder,
-    justifyContent: 'space-between',
-    minHeight: 104,
-    ...Theme.shadows.card,
-  },
-  cardOverdueClear: {
-    borderColor: Theme.colors.borderSubtle,
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginBottom: 6,
+  },
+  kickerLent: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    letterSpacing: 0.6,
+  },
+  kickerBorrowed: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#DC2626',
+    letterSpacing: 0.6,
   },
   labelNeutral: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0F172A',
+    color: Theme.colors.textPrimary,
+    marginTop: 1,
   },
   iconBoxNeutral: {
     width: 28,
     height: 28,
-    borderRadius: Theme.borderRadius.sm,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#0F172A',
+    borderRadius: 14,
+    backgroundColor: Theme.colors.surfaceContainerLow,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconBoxBorrowed: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Theme.colors.surfaceContainerLow,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardBottom: {
+    marginTop: 4,
   },
   amountNeutral: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: Theme.colors.textPrimary,
     letterSpacing: -0.3,
   },
   subtextNeutral: {
     fontSize: 11,
     color: Theme.colors.textMuted,
     marginTop: 2,
+    fontWeight: '500',
   },
-  labelRepaid: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  iconBoxRepaid: {
-    width: 28,
-    height: 28,
-    borderRadius: Theme.borderRadius.sm,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#0F172A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  amountRepaid: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.3,
-  },
-  repaidPillRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 3,
-    gap: 4,
-  },
-  repaidBadgePill: {
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: Theme.borderRadius.full,
-  },
-  repaidBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#16A34A',
-  },
-  subtextRepaid: {
-    fontSize: 11,
-    color: Theme.colors.textMuted,
-  },
-  labelOutstanding: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Theme.colors.onPrimaryContainer,
-  },
-  iconBoxOutstanding: {
-    width: 28,
-    height: 28,
-    borderRadius: Theme.borderRadius.sm,
-    backgroundColor: Theme.colors.primaryContainer,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  amountOutstanding: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Theme.colors.onPrimary,
-    letterSpacing: -0.3,
-  },
-  subtextOutstanding: {
-    fontSize: 11,
-    color: Theme.colors.onPrimaryContainer,
-    marginTop: 2,
-  },
-  labelOverdue: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Theme.colors.statusOverdue,
-  },
-  labelOverdueClear: {
-    color: '#0F172A',
-    fontWeight: '600',
-  },
-  iconBoxOverdue: {
-    width: 28,
-    height: 28,
-    borderRadius: Theme.borderRadius.sm,
-    backgroundColor: Theme.colors.statusOverdueTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconBoxOverdueClear: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#0F172A',
-  },
-  amountOverdue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Theme.colors.statusOverdue,
-    letterSpacing: -0.3,
-  },
-  amountOverdueClear: {
-    color: '#0F172A',
-  },
-  overdueBadgePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: Theme.colors.statusOverdueTint,
+  cardAlert: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Theme.borderRadius.xl,
+    padding: 14,
     borderWidth: 1,
     borderColor: Theme.colors.statusOverdueBorder,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Theme.borderRadius.full,
-    marginTop: 3,
+    justifyContent: 'space-between',
+    minHeight: 104,
+    ...Theme.shadows.card,
   },
-  overdueBadgeText: {
-    fontSize: 10,
+  cardAlertClear: {
+    borderColor: Theme.colors.borderSubtle,
+  },
+  labelAlert: {
+    fontSize: 12,
     fontWeight: '700',
     color: Theme.colors.statusOverdue,
+  },
+  labelAlertClear: {
+    color: Theme.colors.textSecondary,
+  },
+  iconBoxAlert: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Theme.colors.statusOverdueTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBoxAlertClear: {
+    backgroundColor: Theme.colors.surfaceContainerLow,
+  },
+  amountAlert: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Theme.colors.statusOverdue,
+    letterSpacing: -0.2,
+  },
+  amountAlertClear: {
+    color: Theme.colors.textPrimary,
+  },
+  subtextAlert: {
+    fontSize: 11,
+    color: Theme.colors.textMuted,
+    marginTop: 2,
+  },
+  cumulativeTotalsStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: Theme.borderRadius.lg,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.borderSubtle,
+    ...Theme.shadows.sm,
+  },
+  totalCol: {
+    flex: 1,
+  },
+  totalColRight: {
+    alignItems: 'flex-end',
+  },
+  totalColDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: Theme.colors.borderSubtle,
+    marginHorizontal: 12,
+  },
+  totalColLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  totalColValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Theme.colors.textPrimary,
+    marginTop: 2,
   },
 });
