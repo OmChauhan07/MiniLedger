@@ -1,8 +1,8 @@
 // Purpose: Client API functions for retrieving, creating, and marking loans as repaid.
 // Imported by: src/features/dashboard/DashboardScreen.tsx, src/components/AddLoanModal.tsx
 
-import { apiRequest } from './client.js';
-import { Loan, CreateLoanPayload } from '../types/index.js';
+import { apiRequest } from './client';
+import { Loan, CreateLoanPayload } from '../types/index';
 
 // Fetches the list of all loans owned by the authenticated user
 export async function fetchLoansApi(): Promise<Loan[]> {

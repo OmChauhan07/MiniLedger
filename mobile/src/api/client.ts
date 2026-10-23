@@ -1,9 +1,9 @@
 // Purpose: Central HTTP fetch client managing request headers, Bearer authentication token, and error normalization.
 // Imported by: src/api/auth.api.ts, src/api/loan.api.ts, src/api/summary.api.ts
 
-import { getApiBaseUrl } from '../utils/config.js';
-import { getStoredToken } from '../utils/storage.js';
-import { ApiError } from '../types/index.js';
+import { getApiBaseUrl } from '../utils/config';
+import { getStoredToken } from '../utils/storage';
+import { ApiError } from '../types/index';
 
 export class AppApiError extends Error {
   code: string;

@@ -14,8 +14,8 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
-import { sendOtpApi } from '../../api/auth.api.js';
-import { Theme } from '../../theme/index.js';
+import { sendOtpApi } from '../../api/auth.api';
+import { Theme } from '../../theme/index';
 
 interface LoginScreenProps {
   onOtpSent: (normalizedPhone: string) => void;

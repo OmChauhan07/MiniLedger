@@ -4,20 +4,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, ActivityIndicator, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { User, Loan, Summary, CreateLoanPayload } from './src/types/index.js';
-import { getStoredToken, getStoredUser, clearStoredToken, clearStoredUser } from './src/utils/storage.js';
-import { fetchSummaryApi } from './src/api/summary.api.js';
-import { fetchLoansApi, markLoanRepaidApi, createLoanApi } from './src/api/loan.api.js';
-import { LoginScreen } from './src/features/auth/LoginScreen.js';
-import { OtpScreen } from './src/features/auth/OtpScreen.js';
-import { DashboardScreen } from './src/features/dashboard/DashboardScreen.js';
-import { AllLoansScreen } from './src/features/loans/AllLoansScreen.js';
-import { AccountScreen } from './src/features/account/AccountScreen.js';
-import { BottomNav, TabKey } from './src/components/BottomNav.js';
-import { AddLoanModal } from './src/components/AddLoanModal.js';
-import { Toast } from './src/components/Toast.js';
-import { Theme } from './src/theme/index.js';
-import { formatCurrencyCompact } from './src/utils/format.js';
+import { User, Loan, Summary, CreateLoanPayload } from './src/types/index';
+import { getStoredToken, getStoredUser, clearStoredToken, clearStoredUser } from './src/utils/storage';
+import { fetchSummaryApi } from './src/api/summary.api';
+import { fetchLoansApi, markLoanRepaidApi, createLoanApi } from './src/api/loan.api';
+import { LoginScreen } from './src/features/auth/LoginScreen';
+import { OtpScreen } from './src/features/auth/OtpScreen';
+import { DashboardScreen } from './src/features/dashboard/DashboardScreen';
+import { AllLoansScreen } from './src/features/loans/AllLoansScreen';
+import { AccountScreen } from './src/features/account/AccountScreen';
+import { BottomNav, TabKey } from './src/components/BottomNav';
+import { AddLoanModal } from './src/components/AddLoanModal';
+import { Toast } from './src/components/Toast';
+import { Theme } from './src/theme/index';
+import { formatCurrencyCompact } from './src/utils/format';
 
 export default function App() {
   const [isInitializing, setIsInitializing] = useState(true);

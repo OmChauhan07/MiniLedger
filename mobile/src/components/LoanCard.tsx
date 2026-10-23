@@ -3,15 +3,15 @@
 
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Loan } from '../types/index.js';
+import { Loan } from '../types/index';
 import {
   formatCurrencyCompact,
   formatDisplayDate,
   checkIsOverdue,
   getRelativeDueLabel,
   getInitials,
-} from '../utils/format.js';
-import { Theme } from '../theme/index.js';
+} from '../utils/format';
+import { Theme } from '../theme/index';
 
 interface LoanCardProps {
   loan: Loan;

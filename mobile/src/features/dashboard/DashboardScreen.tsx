@@ -14,16 +14,16 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { User, Loan, Summary, CreateLoanPayload } from '../../types/index.js';
-import { fetchSummaryApi } from '../../api/summary.api.js';
-import { fetchLoansApi, markLoanRepaidApi, createLoanApi } from '../../api/loan.api.js';
-import { SummaryCards } from '../../components/SummaryCards.js';
-import { LoanCard } from '../../components/LoanCard.js';
-import { AddLoanModal } from '../../components/AddLoanModal.js';
-import { LoanDetailsModal } from '../../components/LoanDetailsModal.js';
-import { Toast } from '../../components/Toast.js';
-import { Theme } from '../../theme/index.js';
-import { formatCurrencyCompact, getInitials } from '../../utils/format.js';
+import { User, Loan, Summary, CreateLoanPayload } from '../../types/index';
+import { fetchSummaryApi } from '../../api/summary.api';
+import { fetchLoansApi, markLoanRepaidApi, createLoanApi } from '../../api/loan.api';
+import { SummaryCards } from '../../components/SummaryCards';
+import { LoanCard } from '../../components/LoanCard';
+import { AddLoanModal } from '../../components/AddLoanModal';
+import { LoanDetailsModal } from '../../components/LoanDetailsModal';
+import { Toast } from '../../components/Toast';
+import { Theme } from '../../theme/index';
+import { formatCurrencyCompact, getInitials } from '../../utils/format';
 
 interface DashboardScreenProps {
   user: User;

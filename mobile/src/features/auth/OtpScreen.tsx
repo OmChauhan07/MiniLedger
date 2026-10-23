@@ -14,11 +14,11 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
-import { verifyOtpApi, sendOtpApi } from '../../api/auth.api.js';
-import { setStoredToken, setStoredUser } from '../../utils/storage.js';
-import { maskPhoneNumber } from '../../utils/format.js';
-import { User } from '../../types/index.js';
-import { Theme } from '../../theme/index.js';
+import { verifyOtpApi, sendOtpApi } from '../../api/auth.api';
+import { setStoredToken, setStoredUser } from '../../utils/storage';
+import { maskPhoneNumber } from '../../utils/format';
+import { User } from '../../types/index';
+import { Theme } from '../../theme/index';
 
 interface OtpScreenProps {
   phone: string;

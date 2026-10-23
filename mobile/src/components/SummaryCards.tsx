@@ -3,9 +3,9 @@
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Summary } from '../types/index.js';
-import { formatCurrencyCompact } from '../utils/format.js';
-import { Theme } from '../theme/index.js';
+import { Summary } from '../types/index';
+import { formatCurrencyCompact } from '../utils/format';
+import { Theme } from '../theme/index';
 
 interface SummaryCardsProps {
   summary: Summary | null;

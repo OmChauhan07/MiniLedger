@@ -15,8 +15,8 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
-import { CreateLoanPayload } from '../types/index.js';
-import { Theme } from '../theme/index.js';
+import { CreateLoanPayload } from '../types/index';
+import { Theme } from '../theme/index';
 
 interface AddLoanModalProps {
   visible: boolean;

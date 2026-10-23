@@ -1,8 +1,8 @@
 // Purpose: Client API functions for requesting mock OTPs and verifying login credentials.
 // Imported by: src/features/auth/LoginScreen.tsx, src/features/auth/OtpScreen.tsx
 
-import { apiRequest } from './client.js';
-import { User } from '../types/index.js';
+import { apiRequest } from './client';
+import { User } from '../types/index';
 
 export interface VerifyOtpResponse {
   token: string;

@@ -13,9 +13,9 @@ import {
   Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { User, Summary } from '../../types/index.js';
-import { Theme } from '../../theme/index.js';
-import { formatCurrencyCompact } from '../../utils/format.js';
+import { User, Summary } from '../../types/index';
+import { Theme } from '../../theme/index';
+import { formatCurrencyCompact } from '../../utils/format';
 
 interface AccountScreenProps {
   user: User;

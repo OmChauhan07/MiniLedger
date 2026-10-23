@@ -14,11 +14,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Loan, Summary } from '../../types/index.js';
-import { LoanCard } from '../../components/LoanCard.js';
-import { LoanDetailsModal } from '../../components/LoanDetailsModal.js';
-import { Theme } from '../../theme/index.js';
-import { formatCurrencyCompact, checkIsOverdue } from '../../utils/format.js';
+import { Loan, Summary } from '../../types/index';
+import { LoanCard } from '../../components/LoanCard';
+import { LoanDetailsModal } from '../../components/LoanDetailsModal';
+import { Theme } from '../../theme/index';
+import { formatCurrencyCompact, checkIsOverdue } from '../../utils/format';
 
 type FilterType = 'all' | 'pending' | 'overdue' | 'repaid';
 

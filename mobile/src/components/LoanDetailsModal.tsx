@@ -13,15 +13,15 @@ import {
   useWindowDimensions,
   Platform,
 } from 'react-native';
-import { Loan } from '../types/index.js';
-import { Theme } from '../theme/index.js';
+import { Loan } from '../types/index';
+import { Theme } from '../theme/index';
 import {
   formatCurrencyCompact,
   formatDisplayDate,
   checkIsOverdue,
   getRelativeDueLabel,
   getInitials,
-} from '../utils/format.js';
+} from '../utils/format';
 
 interface LoanDetailsModalProps {
   loan: Loan | null;

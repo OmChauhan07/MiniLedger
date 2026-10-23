@@ -3,7 +3,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, Animated, TouchableOpacity } from 'react-native';
-import { Theme } from '../theme/index.js';
+import { Theme } from '../theme/index';
 
 export interface ToastProps {
   visible: boolean;

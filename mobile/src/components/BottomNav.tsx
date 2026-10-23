@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Platform } from 'react-native';
-import { Theme } from '../theme/index.js';
+import { Theme } from '../theme/index';
 
 export type TabKey = 'dashboard' | 'all-loans' | 'account';
 

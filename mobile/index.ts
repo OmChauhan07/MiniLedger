@@ -2,7 +2,7 @@
 // Imported by: none (mobile application entry point)
 
 import { registerRootComponent } from 'expo';
-import App from './App.js';
+import App from './App';
 
 // Registers App component so it loads properly in Expo Go and native Android environments
 registerRootComponent(App);
