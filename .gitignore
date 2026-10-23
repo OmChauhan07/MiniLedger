@@ -11,6 +11,7 @@ node_modules/
 .env.production.local
 *.env
 !*.env.example
+stitch_miniledger_mobile_ui_system/*
 
 # Production and build outputs
 dist/

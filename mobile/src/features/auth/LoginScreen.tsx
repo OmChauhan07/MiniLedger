@@ -1,4 +1,4 @@
-// Purpose: Renders the phone number login screen where users input their mobile number to receive an OTP.
+// Purpose: Renders the modernized phone number login screen matching MiniLedger Stitch specifications.
 // Imported by: App.tsx
 
 import React, { useState } from 'react';
@@ -12,109 +12,237 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { sendOtpApi } from '../../api/auth.api.js';
-import { ErrorBanner } from '../../components/ErrorBanner.js';
+import { Theme } from '../../theme/index.js';
 
 interface LoginScreenProps {
   onOtpSent: (normalizedPhone: string) => void;
 }
 
-// Renders the phone entry form with validation and OTP dispatch trigger
+// Formats 10 raw digits into 5-5 grouped format (e.g. "98765 43210")
+function formatPhoneInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 10);
+  if (digits.length > 5) {
+    return `${digits.slice(0, 5)} ${digits.slice(5)}`;
+  }
+  return digits;
+}
+
 export function LoginScreen({ onOtpSent }: LoginScreenProps) {
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneText, setPhoneText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { width } = useWindowDimensions();
 
-  // Validates phone format and requests a one-time verification code from the API
-  const handleSendOtp = async () => {
+  const rawDigits = phoneText.replace(/\D/g, '');
+  const isValidLength = rawDigits.length === 10;
+
+  const handlePhoneChange = (text: string) => {
+    setPhoneText(formatPhoneInput(text));
+    if (errorMessage) {
+      setErrorMessage(null);
+    }
+  };
+
+  const handleClear = () => {
+    setPhoneText('');
     setErrorMessage(null);
-    const cleanDigits = phoneNumber.trim().replace(/\D/g, '');
+  };
 
-    // Ensure valid length for 10-digit Indian numbers or E.164
-    if (cleanDigits.length < 10) {
-      setErrorMessage('Please enter a valid 10-digit mobile number.');
+  const handleSendOtp = async () => {
+    if (!isValidLength) {
+      setErrorMessage('Enter a valid 10-digit mobile number');
       return;
     }
 
-    // Default to +91 country code for 10-digit numbers
-    const formattedPhone = cleanDigits.length === 10 ? `+91${cleanDigits}` : `+${cleanDigits}`;
-
+    const normalizedPhone = `+91${rawDigits}`;
     setIsLoading(true);
+    setErrorMessage(null);
+
     try {
-      await sendOtpApi(formattedPhone);
+      await sendOtpApi(normalizedPhone);
       setIsLoading(false);
-      onOtpSent(formattedPhone);
+      onOtpSent(normalizedPhone);
     } catch (err: any) {
       setIsLoading(false);
       setErrorMessage(err.message || 'Unable to send OTP. Please verify your connection.');
     }
   };
 
+  const isSmallDevice = width < 360;
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.keyboardContainer}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          isSmallDevice && styles.scrollContentSmall,
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* Brand Header */}
         <View style={styles.brandContainer}>
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoBadgeText}>₹</Text>
+          <View style={styles.logoWrapper}>
+            <View style={styles.logoBadge}>
+              <Text style={styles.logoBadgeSymbol}>₹</Text>
+            </View>
+            <View style={styles.verifiedIconBadge}>
+              <Text style={styles.verifiedIconText}>✓</Text>
+            </View>
           </View>
-          <Text style={styles.appTitle}>MiniLedger</Text>
-          <Text style={styles.appSubtitle}>Personal Lending Ledger</Text>
-          <Text style={styles.appDescription}>
-            Keep track of money lent to friends, manage due dates, and monitor settlements with zero clutter.
-          </Text>
+          <Text style={styles.brandTitle}>MiniLedger</Text>
+          <Text style={styles.brandSubtitle}>Track peer loans simply and reliably</Text>
         </View>
 
-        {/* Login Form Card */}
-        <View style={styles.formCard}>
-          <Text style={styles.formTitle}>Sign In / Register</Text>
-          <Text style={styles.formSubtitle}>Enter your phone number to receive a secure login code</Text>
-
-          <ErrorBanner message={errorMessage} onDismiss={() => setErrorMessage(null)} />
-
-          <Text style={styles.inputLabel}>MOBILE NUMBER</Text>
-          <View style={styles.phoneInputRow}>
-            <View style={styles.countryCodeBox}>
-              <Text style={styles.countryCodeText}>🇮🇳 +91</Text>
-            </View>
-            <TextInput
-              style={styles.phoneInput}
-              placeholder="98765 43210"
-              placeholderTextColor="#94A3B8"
-              keyboardType="phone-pad"
-              value={phoneNumber}
-              onChangeText={(text) => {
-                setPhoneNumber(text);
-                if (errorMessage) setErrorMessage(null);
-              }}
-              maxLength={15}
-              autoFocus
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
-            onPress={handleSendOtp}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.submitButtonText}>Continue with OTP</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Dev Helper Notice */}
-          <View style={styles.devNote}>
-            <Text style={styles.devNoteText}>
-              💡 Development Mode: The 6-digit mock OTP is logged to your backend server terminal.
+        {/* Main Phone Input Card */}
+        <View style={styles.cardContainer}>
+          {/* Welcome Banner */}
+          <View style={styles.infoBanner}>
+            <Text style={styles.infoBannerIcon}>🔒</Text>
+            <Text style={styles.infoBannerText}>
+              Sign in with your phone number to access your lending ledger.
             </Text>
           </View>
+
+          {/* Input Label */}
+          <Text style={styles.inputLabel}>Mobile Number</Text>
+
+          {/* Phone Input Box with +91 Chip & Clear Button */}
+          <View
+            style={[
+              styles.inputBox,
+              errorMessage ? styles.inputBoxError : isValidLength ? styles.inputBoxValid : null,
+            ]}
+          >
+            <View style={styles.countryCodeChip}>
+              <Text style={styles.flagText}>🇮🇳</Text>
+              <Text style={styles.countryCodeText}>+91</Text>
+              <Text style={styles.chevronDownText}>▾</Text>
+            </View>
+
+            <TextInput
+              style={styles.textInput}
+              placeholder="98765 43210"
+              placeholderTextColor="#94A3B8"
+              keyboardType="number-pad"
+              maxLength={11}
+              value={phoneText}
+              onChangeText={handlePhoneChange}
+              autoFocus
+            />
+
+            {phoneText.length > 0 && (
+              <TouchableOpacity
+                onPress={handleClear}
+                style={styles.clearButton}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.clearButtonText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Validation Error Banner */}
+          {errorMessage ? (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorIcon}>⚠</Text>
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : (
+            <View style={styles.helperRow}>
+              <Text style={styles.helperIcon}>💬</Text>
+              <Text style={styles.helperText}>
+                We will send an SMS with a 6-digit verification code.
+              </Text>
+            </View>
+          )}
+
+          {/* Get OTP Button */}
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              isValidLength && !isLoading
+                ? styles.submitButtonActive
+                : styles.submitButtonDisabled,
+            ]}
+            onPress={handleSendOtp}
+            disabled={!isValidLength || isLoading}
+            activeOpacity={0.85}
+          >
+            {isLoading ? (
+              <ActivityIndicator color={Theme.colors.onPrimary} size="small" />
+            ) : (
+              <View style={styles.submitBtnContent}>
+                <Text
+                  style={[
+                    styles.submitButtonText,
+                    isValidLength && !isLoading
+                      ? styles.submitButtonTextActive
+                      : styles.submitButtonTextDisabled,
+                  ]}
+                >
+                  Get OTP
+                </Text>
+                <Text
+                  style={[
+                    styles.submitArrow,
+                    isValidLength && !isLoading
+                      ? styles.submitArrowActive
+                      : styles.submitArrowDisabled,
+                  ]}
+                >
+                  ➔
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Security & Features Bento Row */}
+        <View style={styles.featuresGrid}>
+          {/* 256-bit Encrypted Card */}
+          <View style={styles.featureCard}>
+            <View style={styles.featureIconRepaid}>
+              <Text style={styles.featureGlyphGreen}>✓</Text>
+            </View>
+            <View style={styles.featureInfo}>
+              <Text style={styles.featureLabel}>SECURITY</Text>
+              <Text style={styles.featureTitle} numberOfLines={1}>
+                256-bit Encrypted
+              </Text>
+            </View>
+          </View>
+
+          {/* Ledger Sync Card */}
+          <View style={styles.featureCard}>
+            <View style={styles.featureIconPrimary}>
+              <Text style={styles.featureGlyphBlue}>↻</Text>
+            </View>
+            <View style={styles.featureInfo}>
+              <Text style={styles.featureLabel}>LEDGER SYNC</Text>
+              <Text style={styles.featureTitle} numberOfLines={1}>
+                Instant Peer Update
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Footer info pill and agreement */}
+        <View style={styles.footerContainer}>
+          <View style={styles.badgePill}>
+            <View style={styles.activeDot} />
+            <Text style={styles.badgePillText}>Expo React Native Demo · Instant Auth</Text>
+          </View>
+          <Text style={styles.legalNotice}>
+            By continuing, you agree to our Terms & Privacy Policy
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -124,150 +252,328 @@ export function LoginScreen({ onOtpSent }: LoginScreenProps) {
 const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 28,
+  },
+  scrollContentSmall: {
+    paddingHorizontal: 14,
+    paddingVertical: 18,
   },
   brandContainer: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
+  },
+  logoWrapper: {
+    position: 'relative',
+    marginBottom: 12,
   },
   logoBadge: {
     width: 64,
     height: 64,
-    borderRadius: 16,
-    backgroundColor: '#1E293B',
+    borderRadius: Theme.borderRadius.xl,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: Theme.colors.borderSubtle,
+    ...Theme.shadows.sm,
   },
-  logoBadgeText: {
+  logoBadgeSymbol: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#38BDF8',
+    color: Theme.colors.primary,
   },
-  appTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.5,
+  verifiedIconBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Theme.colors.surfaceCard,
   },
-  appSubtitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#475569',
-    marginTop: 4,
-  },
-  appDescription: {
-    fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-    marginTop: 10,
-    lineHeight: 18,
-    maxWidth: 280,
-  },
-  formCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  formTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 4,
-  },
-  formSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    marginBottom: 20,
-  },
-  inputLabel: {
+  verifiedIconText: {
+    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
-    letterSpacing: 0.6,
+  },
+  brandTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: Theme.colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  brandSubtitle: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: Theme.colors.textSecondary,
+    marginTop: 4,
+  },
+  cardContainer: {
+    backgroundColor: Theme.colors.surfaceCard,
+    borderRadius: Theme.borderRadius.xl,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: Theme.colors.borderSubtle,
+    marginBottom: 20,
+    ...Theme.shadows.card,
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surfaceContainerLow,
+    borderRadius: Theme.borderRadius.md,
+    padding: 12,
+    marginBottom: 18,
+  },
+  infoBannerIcon: {
+    fontSize: 16,
+    marginRight: 10,
+  },
+  infoBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: Theme.colors.textSecondary,
+    lineHeight: 18,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Theme.colors.textSecondary,
     marginBottom: 8,
   },
-  phoneInputRow: {
+  inputBox: {
     flexDirection: 'row',
-    marginBottom: 20,
-  },
-  countryCodeBox: {
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderTopLeftRadius: 10,
-    borderBottomLeftRadius: 10,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
     alignItems: 'center',
+    height: 52,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Theme.borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: Theme.colors.borderSubtle,
+    overflow: 'hidden',
+  },
+  inputBoxValid: {
+    borderColor: Theme.colors.primary,
+  },
+  inputBoxError: {
+    borderColor: Theme.colors.statusOverdue,
+    backgroundColor: Theme.colors.statusOverdueTint,
+  },
+  countryCodeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surfaceContainerLow,
+    height: '100%',
+    paddingHorizontal: 12,
+    borderRightWidth: 1,
+    borderRightColor: Theme.colors.borderSubtle,
+  },
+  flagText: {
+    fontSize: 16,
+    marginRight: 4,
   },
   countryCodeText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#334155',
+    fontWeight: '700',
+    color: Theme.colors.textPrimary,
   },
-  phoneInput: {
+  chevronDownText: {
+    fontSize: 11,
+    color: Theme.colors.textSecondary,
+    marginLeft: 3,
+  },
+  textInput: {
     flex: 1,
-    height: 48,
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderColor: '#CBD5E1',
-    borderTopRightRadius: 10,
-    borderBottomRightRadius: 10,
-    paddingHorizontal: 14,
-    fontSize: 16,
-    color: '#0F172A',
-    backgroundColor: '#FFFFFF',
+    height: '100%',
+    paddingHorizontal: 12,
+    fontSize: 17,
+    fontWeight: '600',
+    color: Theme.colors.textPrimary,
+    letterSpacing: 0.5,
   },
-  submitButton: {
-    backgroundColor: '#0284C7',
-    height: 48,
-    borderRadius: 10,
+  clearButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 2,
+    marginRight: 12,
+  },
+  clearButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Theme.colors.textSecondary,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.statusOverdueTint,
+    borderRadius: Theme.borderRadius.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginTop: 8,
+  },
+  errorIcon: {
+    fontSize: 14,
+    color: Theme.colors.statusOverdue,
+    marginRight: 6,
+  },
+  errorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Theme.colors.statusOverdue,
+  },
+  helperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  helperIcon: {
+    fontSize: 13,
+    marginRight: 6,
+  },
+  helperText: {
+    fontSize: 12,
+    color: Theme.colors.textMuted,
+  },
+  submitButton: {
+    height: 52,
+    borderRadius: Theme.borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+  },
+  submitButtonActive: {
+    backgroundColor: Theme.colors.primary,
+    ...Theme.shadows.floating,
   },
   submitButtonDisabled: {
-    opacity: 0.6,
+    backgroundColor: Theme.colors.surfaceContainerHighest,
+  },
+  submitBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   submitButtonText: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
   },
-  devNote: {
-    marginTop: 16,
-    padding: 10,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  submitButtonTextActive: {
+    color: Theme.colors.onPrimary,
   },
-  devNoteText: {
+  submitButtonTextDisabled: {
+    color: Theme.colors.textSecondary,
+  },
+  submitArrow: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  submitArrowActive: {
+    color: Theme.colors.onPrimary,
+  },
+  submitArrowDisabled: {
+    color: Theme.colors.textSecondary,
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  featureCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surfaceCard,
+    borderRadius: Theme.borderRadius.lg,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.borderSubtle,
+    ...Theme.shadows.sm,
+  },
+  featureIconRepaid: {
+    width: 32,
+    height: 32,
+    borderRadius: Theme.borderRadius.sm,
+    backgroundColor: Theme.colors.statusRepaidTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  featureGlyphGreen: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Theme.colors.statusRepaid,
+  },
+  featureIconPrimary: {
+    width: 32,
+    height: 32,
+    borderRadius: Theme.borderRadius.sm,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  featureGlyphBlue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Theme.colors.primary,
+  },
+  featureInfo: {
+    flex: 1,
+  },
+  featureLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: Theme.colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  featureTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Theme.colors.textPrimary,
+    marginTop: 1,
+  },
+  footerContainer: {
+    alignItems: 'center',
+    marginTop: 'auto',
+    paddingTop: 12,
+  },
+  badgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: Theme.borderRadius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginBottom: 8,
+  },
+  activeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: Theme.colors.statusRepaid,
+    marginRight: 6,
+  },
+  badgePillText: {
     fontSize: 11,
-    color: '#64748B',
+    fontWeight: '600',
+    color: Theme.colors.textSecondary,
+  },
+  legalNotice: {
+    fontSize: 11,
+    color: Theme.colors.textMuted,
     textAlign: 'center',
-    lineHeight: 16,
   },
 });

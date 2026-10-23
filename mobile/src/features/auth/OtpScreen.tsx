@@ -1,7 +1,7 @@
-// Purpose: Renders the OTP verification screen where users input the 6-digit code sent to their mobile number.
+// Purpose: Renders the modernized 6-slot OTP verification screen matching MiniLedger Stitch specifications.
 // Imported by: App.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,11 +12,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { verifyOtpApi, sendOtpApi } from '../../api/auth.api.js';
 import { setStoredToken, setStoredUser } from '../../utils/storage.js';
-import { ErrorBanner } from '../../components/ErrorBanner.js';
+import { maskPhoneNumber } from '../../utils/format.js';
 import { User } from '../../types/index.js';
+import { Theme } from '../../theme/index.js';
 
 interface OtpScreenProps {
   phone: string;
@@ -24,128 +26,285 @@ interface OtpScreenProps {
   onChangePhone: () => void;
 }
 
-// Renders the 6-digit verification code form and manages OTP confirmation logic
+const TOTAL_SLOTS = 6;
+const COUNTDOWN_INITIAL_SECONDS = 45;
+
 export function OtpScreen({ phone, onVerificationSuccess, onChangePhone }: OtpScreenProps) {
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
+  const [countdown, setCountdown] = useState(COUNTDOWN_INITIAL_SECONDS);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
-  // Formats phone number for privacy display
-  const maskedPhone =
-    phone.length > 7
-      ? `${phone.slice(0, 4)} •••• ••${phone.slice(-3)}`
-      : phone;
+  const inputRef = useRef<any>(null);
+  const { width } = useWindowDimensions();
 
-  // Verifies the user-entered 6-digit OTP and completes authentication
-  const handleVerifyOtp = async () => {
+  // Resend countdown timer interval
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const interval = setInterval(() => {
+      setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [countdown]);
+
+  const handleTextChange = (text: string) => {
+    const cleaned = text.replace(/\D/g, '').slice(0, TOTAL_SLOTS);
+    setOtp(cleaned);
+    if (errorMessage) {
+      setErrorMessage(null);
+    }
+  };
+
+  const handleClearSlots = () => {
+    setOtp('');
     setErrorMessage(null);
-    setInfoMessage(null);
-    const cleanOtp = otp.trim();
+    inputRef.current?.focus();
+  };
 
-    if (cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
+  const handleVerify = async () => {
+    if (otp.length !== TOTAL_SLOTS) {
       setErrorMessage('Please enter the complete 6-digit verification code.');
       return;
     }
 
     setIsLoading(true);
+    setErrorMessage(null);
+    setSuccessNotice(null);
+
     try {
-      const response = await verifyOtpApi(phone, cleanOtp);
+      const response = await verifyOtpApi(phone, otp);
       await setStoredToken(response.token);
       await setStoredUser(response.user);
       setIsLoading(false);
       onVerificationSuccess(response.token, response.user);
     } catch (err: any) {
       setIsLoading(false);
-      setErrorMessage(err.message || 'Verification failed. Please re-check the code.');
+      const remaining = attemptsRemaining !== null ? Math.max(0, attemptsRemaining - 1) : 2;
+      setAttemptsRemaining(remaining);
+      setErrorMessage(
+        err.message ||
+          (remaining > 0
+            ? `The code entered is incorrect. ${remaining} attempts remaining.`
+            : 'Verification failed. Please request a new code.')
+      );
     }
   };
 
-  // Re-requests a fresh verification code for the current phone number
-  const handleResendOtp = async () => {
-    setErrorMessage(null);
+  const handleResend = async () => {
+    if (countdown > 0 || isResending) return;
+
     setIsResending(true);
+    setErrorMessage(null);
+    setSuccessNotice(null);
+
     try {
       await sendOtpApi(phone);
       setIsResending(false);
-      setInfoMessage('A new verification code has been generated. Check server logs.');
+      setCountdown(COUNTDOWN_INITIAL_SECONDS);
+      setSuccessNotice('New verification code dispatched via SMS.');
+      setAttemptsRemaining(3);
+      setOtp('');
+      inputRef.current?.focus();
     } catch (err: any) {
       setIsResending(false);
       setErrorMessage(err.message || 'Unable to resend OTP. Please wait a moment.');
     }
   };
 
+  const isSmallDevice = width < 360;
+  const isComplete = otp.length === TOTAL_SLOTS;
+  const formattedCountdown = `0:${countdown < 10 ? '0' : ''}${countdown}`;
+  const maskedDisplay = maskPhoneNumber(phone);
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.keyboardContainer}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {/* Verification Card */}
-        <View style={styles.formCard}>
-          <TouchableOpacity onPress={onChangePhone} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Change Number</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.formTitle}>Enter Verification Code</Text>
-          <Text style={styles.formSubtitle}>
-            We sent a 6-digit code to{' '}
-            <Text style={styles.phoneHighlight}>{maskedPhone}</Text>
-          </Text>
-
-          <ErrorBanner message={errorMessage} onDismiss={() => setErrorMessage(null)} />
-
-          {infoMessage && (
-            <View style={styles.infoBanner}>
-              <Text style={styles.infoBannerText}>✓ {infoMessage}</Text>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          isSmallDevice && styles.scrollContentSmall,
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Invalid OTP / Status Banner */}
+        {errorMessage && (
+          <View style={styles.errorBannerContainer}>
+            <View style={styles.errorIconBadge}>
+              <Text style={styles.errorIconText}>!</Text>
             </View>
-          )}
+            <View style={styles.errorContent}>
+              <Text style={styles.errorHeading}>Invalid OTP</Text>
+              <Text style={styles.errorMessageText}>{errorMessage}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleClearSlots}
+              style={styles.retryButton}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-          <Text style={styles.inputLabel}>6-DIGIT CODE</Text>
+        {/* Success Notice Banner */}
+        {successNotice && (
+          <View style={styles.successBanner}>
+            <Text style={styles.successIcon}>✓</Text>
+            <Text style={styles.successText}>{successNotice}</Text>
+          </View>
+        )}
+
+        {/* Step Header */}
+        <View style={styles.headerContainer}>
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepBadgeIcon}>🛡</Text>
+            <Text style={styles.stepBadgeText}>Step 2 of 2 • Instant Auth</Text>
+          </View>
+
+          <Text style={styles.screenTitle}>Verify phone number</Text>
+
+          <View style={styles.phoneDetailsRow}>
+            <Text style={styles.subtextPrompt}>Enter the 6-digit code sent via SMS to </Text>
+            <Text style={styles.maskedPhoneText}>{maskedDisplay}</Text>
+            <TouchableOpacity onPress={onChangePhone} style={styles.editNumberBtn} activeOpacity={0.7}>
+              <Text style={styles.editNumberText}>Edit number</Text>
+              <Text style={styles.editIcon}>✎</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Visual 6-Slot OTP Container Card */}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => inputRef.current?.focus()}
+          style={styles.otpCard}
+        >
+          {/* Hidden TextInput handling OS input & autocorrect */}
           <TextInput
-            style={styles.otpInput}
-            placeholder="000000"
-            placeholderTextColor="#CBD5E1"
-            keyboardType="number-pad"
+            ref={inputRef}
+            style={styles.hiddenInput}
             value={otp}
-            onChangeText={(text) => {
-              setOtp(text.replace(/\D/g, '').slice(0, 6));
-              if (errorMessage) setErrorMessage(null);
-            }}
-            maxLength={6}
+            onChangeText={handleTextChange}
+            keyboardType="number-pad"
+            maxLength={TOTAL_SLOTS}
             autoFocus
           />
 
-          <TouchableOpacity
-            style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
-            onPress={handleVerifyOtp}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.submitButtonText}>Verify & Continue</Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.slotsRow}>
+            {Array.from({ length: TOTAL_SLOTS }).map((_, index) => {
+              const char = otp[index] || '';
+              const isFocused = index === otp.length;
+              const isFilled = index < otp.length;
 
-          {/* Resend Action */}
-          <View style={styles.resendRow}>
-            <Text style={styles.resendText}>Didn't receive the code? </Text>
-            <TouchableOpacity onPress={handleResendOtp} disabled={isResending}>
-              <Text style={styles.resendLink}>
-                {isResending ? 'Sending...' : 'Resend Code'}
-              </Text>
-            </TouchableOpacity>
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.slotBox,
+                    isSmallDevice && styles.slotBoxSmall,
+                    isFocused && styles.slotBoxFocused,
+                    isFilled && styles.slotBoxFilled,
+                  ]}
+                >
+                  {char ? (
+                    <Text style={styles.slotDigit}>{char}</Text>
+                  ) : isFocused ? (
+                    <View style={styles.focusedIndicator} />
+                  ) : (
+                    <View style={styles.emptyIndicatorDot} />
+                  )}
+                </View>
+              );
+            })}
           </View>
 
-          {/* Development Terminal Hint */}
-          <View style={styles.devNote}>
-            <Text style={styles.devNoteText}>
-              💡 Development Note: Inspect your backend server terminal to view the mock OTP.
+          {/* Security Note */}
+          <View style={styles.securityHintRow}>
+            <Text style={styles.securityHintIcon}>🔒</Text>
+            <Text style={styles.securityHintText}>
+              MiniLedger keeps your financial credentials encrypted
             </Text>
           </View>
+        </TouchableOpacity>
+
+        {/* Countdown & Resend Section */}
+        <View style={styles.resendSection}>
+          <View style={styles.timerRow}>
+            <Text style={styles.timerClockIcon}>⏱</Text>
+            <Text style={styles.timerLabel}>Resend code in</Text>
+            <View style={styles.timerPill}>
+              <Text style={styles.timerPillText}>{formattedCountdown}</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            onPress={handleResend}
+            disabled={countdown > 0 || isResending}
+            style={styles.resendButton}
+            activeOpacity={0.7}
+          >
+            {isResending ? (
+              <ActivityIndicator size="small" color={Theme.colors.primary} />
+            ) : (
+              <Text
+                style={[
+                  styles.resendButtonText,
+                  countdown === 0 ? styles.resendActiveText : styles.resendDisabledText,
+                ]}
+              >
+                Resend via SMS ↻
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Verify CTA Button */}
+        <TouchableOpacity
+          style={[
+            styles.verifyButton,
+            isComplete && !isLoading
+              ? styles.verifyButtonActive
+              : styles.verifyButtonDisabled,
+          ]}
+          onPress={handleVerify}
+          disabled={!isComplete || isLoading}
+          activeOpacity={0.85}
+        >
+          {isLoading ? (
+            <ActivityIndicator color={Theme.colors.onPrimary} size="small" />
+          ) : (
+            <View style={styles.verifyBtnContent}>
+              <Text
+                style={[
+                  styles.verifyButtonText,
+                  isComplete ? styles.verifyTextActive : styles.verifyTextDisabled,
+                ]}
+              >
+                Verify & Continue
+              </Text>
+              <Text
+                style={[
+                  styles.verifyArrow,
+                  isComplete ? styles.verifyTextActive : styles.verifyTextDisabled,
+                ]}
+              >
+                ➔
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Development Tip Banner */}
+        <View style={styles.devTipCard}>
+          <Text style={styles.devTipText}>
+            💡 Development Mode: The mock OTP code is printed directly to your backend server logs.
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -155,129 +314,314 @@ export function OtpScreen({ phone, onVerificationSuccess, onChangePhone }: OtpSc
 const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 28,
   },
-  formCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
+  scrollContentSmall: {
+    paddingHorizontal: 12,
+    paddingVertical: 18,
+  },
+  errorBannerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.statusOverdueTint,
+    borderRadius: Theme.borderRadius.xl,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 16,
-    paddingVertical: 4,
-  },
-  backButtonText: {
-    fontSize: 13,
-    color: '#0284C7',
-    fontWeight: '600',
-  },
-  formTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 6,
-  },
-  formSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+    borderColor: Theme.colors.statusOverdueBorder,
     marginBottom: 20,
-    lineHeight: 18,
+    ...Theme.shadows.sm,
   },
-  phoneHighlight: {
-    color: '#0F172A',
-    fontWeight: '700',
-  },
-  infoBanner: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#BBF7D0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 16,
-  },
-  infoBannerText: {
-    fontSize: 12,
-    color: '#15803D',
-    fontWeight: '500',
-  },
-  inputLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
-    letterSpacing: 0.6,
-    marginBottom: 8,
-  },
-  otpInput: {
-    height: 56,
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    borderRadius: 10,
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: 10,
-    textAlign: 'center',
-    color: '#0F172A',
-    backgroundColor: '#F8FAFC',
-    marginBottom: 20,
-  },
-  submitButton: {
-    backgroundColor: '#0284C7',
-    height: 48,
-    borderRadius: 10,
+  errorIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Theme.colors.statusOverdue,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 2,
+    marginRight: 10,
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
+  errorIconText: {
     color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  errorContent: {
+    flex: 1,
+    marginRight: 8,
+  },
+  errorHeading: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Theme.colors.statusOverdue,
+  },
+  errorMessageText: {
+    fontSize: 11,
+    color: Theme.colors.textSecondary,
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  retryButton: {
+    backgroundColor: Theme.colors.statusOverdue,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: Theme.borderRadius.full,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.statusRepaidTint,
+    borderRadius: Theme.borderRadius.lg,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.statusRepaidBorder,
+    marginBottom: 16,
+  },
+  successIcon: {
+    fontSize: 14,
+    color: Theme.colors.statusRepaid,
+    marginRight: 8,
+    fontWeight: '700',
+  },
+  successText: {
+    fontSize: 12,
+    color: Theme.colors.statusRepaid,
+    fontWeight: '600',
+  },
+  headerContainer: {
+    marginBottom: 20,
+  },
+  stepBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderRadius: Theme.borderRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 10,
+  },
+  stepBadgeIcon: {
+    fontSize: 12,
+    marginRight: 5,
+  },
+  stepBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Theme.colors.primary,
+  },
+  screenTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: Theme.colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  phoneDetailsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 4,
+  },
+  subtextPrompt: {
+    fontSize: 13,
+    color: Theme.colors.textSecondary,
+  },
+  maskedPhoneText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Theme.colors.textPrimary,
+  },
+  editNumberBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  editNumberText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Theme.colors.primary,
+  },
+  editIcon: {
+    fontSize: 12,
+    color: Theme.colors.primary,
+    marginLeft: 2,
+  },
+  otpCard: {
+    backgroundColor: Theme.colors.surfaceCard,
+    borderRadius: Theme.borderRadius.xl,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: Theme.colors.borderSubtle,
+    marginBottom: 18,
+    ...Theme.shadows.card,
+  },
+  hiddenInput: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
+  },
+  slotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 6,
+  },
+  slotBox: {
+    flex: 1,
+    height: 52,
+    borderRadius: Theme.borderRadius.md,
+    backgroundColor: Theme.colors.surfaceContainerLow,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  slotBoxSmall: {
+    height: 44,
+  },
+  slotBoxFocused: {
+    borderColor: Theme.colors.primary,
+    backgroundColor: '#FFFFFF',
+    ...Theme.shadows.sm,
+  },
+  slotBoxFilled: {
+    borderColor: Theme.colors.borderSubtle,
+    backgroundColor: Theme.colors.surfaceCard,
+  },
+  slotDigit: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Theme.colors.textPrimary,
+  },
+  focusedIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Theme.colors.primary,
+  },
+  emptyIndicatorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Theme.colors.outlineVariant,
+  },
+  securityHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+  },
+  securityHintIcon: {
+    fontSize: 12,
+    marginRight: 6,
+  },
+  securityHintText: {
+    fontSize: 11,
+    color: Theme.colors.textMuted,
+  },
+  resendSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingHorizontal: 4,
+  },
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timerClockIcon: {
+    fontSize: 13,
+    marginRight: 4,
+  },
+  timerLabel: {
+    fontSize: 12,
+    color: Theme.colors.textMuted,
+    marginRight: 6,
+  },
+  timerPill: {
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Theme.borderRadius.full,
+  },
+  timerPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Theme.colors.textPrimary,
+  },
+  resendButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  resendButtonText: {
+    fontSize: 13,
+  },
+  resendActiveText: {
+    color: Theme.colors.primary,
+    fontWeight: '700',
+  },
+  resendDisabledText: {
+    color: Theme.colors.textMuted,
+    fontWeight: '500',
+  },
+  verifyButton: {
+    height: 52,
+    borderRadius: Theme.borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  verifyButtonActive: {
+    backgroundColor: Theme.colors.primaryContainer,
+    ...Theme.shadows.floating,
+  },
+  verifyButtonDisabled: {
+    backgroundColor: Theme.colors.surfaceContainerHighest,
+  },
+  verifyBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  verifyButtonText: {
     fontSize: 15,
     fontWeight: '700',
   },
-  resendRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 18,
+  verifyTextActive: {
+    color: Theme.colors.onPrimary,
   },
-  resendText: {
-    fontSize: 13,
-    color: '#64748B',
+  verifyTextDisabled: {
+    color: Theme.colors.textSecondary,
   },
-  resendLink: {
-    fontSize: 13,
-    color: '#0284C7',
+  verifyArrow: {
+    fontSize: 16,
     fontWeight: '700',
   },
-  devNote: {
-    marginTop: 20,
-    padding: 10,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+  devTipCard: {
+    padding: 12,
+    backgroundColor: Theme.colors.surfaceContainerLow,
+    borderRadius: Theme.borderRadius.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.borderSubtle,
+    alignItems: 'center',
   },
-  devNoteText: {
+  devTipText: {
     fontSize: 11,
-    color: '#64748B',
+    color: Theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 16,
   },
