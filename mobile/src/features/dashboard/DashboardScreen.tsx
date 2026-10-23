@@ -22,6 +22,7 @@ import { LoanCard } from '../../components/LoanCard';
 import { AddLoanModal } from '../../components/AddLoanModal';
 import { LoanDetailsModal } from '../../components/LoanDetailsModal';
 import { Toast } from '../../components/Toast';
+import { EyeIcon, BoltIcon, WalletIcon } from '../../components/Icons';
 import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 import { formatCurrencyCompact, getInitials } from '../../utils/format';
 
@@ -197,7 +198,10 @@ export function DashboardScreen({
                     <Text style={styles.greetingName}>
                       Hi, {user.phone ? user.phone.slice(-4) : 'User'}
                     </Text>
-                    <Text style={styles.waveEmoji}>👋</Text>
+                    <View style={styles.activeOnlinePill}>
+                      <View style={styles.activeOnlineDot} />
+                      <Text style={styles.activeOnlineText}>Active</Text>
+                    </View>
                   </View>
                   <Text style={styles.greetingSubtitle}>Here is your financial overview today</Text>
                 </View>
@@ -208,7 +212,7 @@ export function DashboardScreen({
                   style={styles.previewToggleBtn}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.previewToggleIcon}>👁</Text>
+                  <EyeIcon size={13} color={Theme.colors.textSecondary} />
                   <Text style={styles.previewToggleText}>
                     {emptyPreviewMode ? 'Active View' : 'Demo Empty'}
                   </Text>
@@ -226,7 +230,7 @@ export function DashboardScreen({
               <View style={styles.quickActionCard}>
                 <View style={styles.quickActionHeader}>
                   <View style={styles.quickActionIconCircle}>
-                    <Text style={styles.quickActionGlyph}>⚡</Text>
+                    <BoltIcon size={14} color="#FFFFFF" />
                   </View>
                   <View style={styles.quickActionTextCol}>
                     <Text style={styles.quickActionTitle}>Quick Ledger Actions</Text>
@@ -290,7 +294,7 @@ export function DashboardScreen({
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>
-                <Text style={styles.emptyIconText}>🪙</Text>
+                <WalletIcon size={26} color={Theme.colors.textMuted} />
               </View>
               <Text style={styles.emptyTitle}>All settled up!</Text>
               <Text style={styles.emptySubtitle}>
@@ -438,8 +442,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Theme.colors.textPrimary,
   },
-  waveEmoji: {
-    fontSize: 18,
+  activeOnlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: Theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 4,
+  },
+  activeOnlineDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#16A34A',
+  },
+  activeOnlineText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   greetingSubtitle: {
     fontSize: 13,

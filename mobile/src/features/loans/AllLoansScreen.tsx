@@ -17,6 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Loan, Summary } from '../../types/index';
 import { LoanCard } from '../../components/LoanCard';
 import { LoanDetailsModal } from '../../components/LoanDetailsModal';
+import { SearchIcon, AlertTriangleIcon, CheckIcon, WalletIcon } from '../../components/Icons';
 import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 import { formatCurrencyCompact, checkIsOverdue } from '../../utils/format';
 
@@ -135,7 +136,9 @@ export function AllLoansScreen({
           <View style={styles.headerSection}>
             {/* Search Input Bar */}
             <View style={styles.searchBox}>
-              <Text style={styles.searchIcon}>🔍</Text>
+              <View style={styles.searchIconWrapper}>
+                <SearchIcon size={16} color={Theme.colors.textMuted} />
+              </View>
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search friend or note..."
@@ -229,7 +232,10 @@ export function AllLoansScreen({
                 ]}
                 activeOpacity={0.7}
               >
-                <Text style={styles.chipGlyph}>⚠</Text>
+                <AlertTriangleIcon
+                  size={12}
+                  color={activeFilter === 'overdue' ? '#FFFFFF' : Theme.colors.statusOverdue}
+                />
                 <Text
                   style={[
                     styles.chipText,
@@ -254,7 +260,11 @@ export function AllLoansScreen({
                 ]}
                 activeOpacity={0.7}
               >
-                <Text style={styles.chipGlyph}>✓</Text>
+                <CheckIcon
+                  size={12}
+                  color={activeFilter === 'repaid' ? '#FFFFFF' : Theme.colors.statusRepaid}
+                  strokeWidth={2.2}
+                />
                 <Text
                   style={[
                     styles.chipText,
@@ -286,7 +296,7 @@ export function AllLoansScreen({
                 )}
               </View>
               <View style={styles.metricsHeroIconBox}>
-                <Text style={styles.metricsHeroIconText}>👛</Text>
+                <WalletIcon size={18} color="#FFFFFF" />
               </View>
             </View>
 
@@ -309,7 +319,9 @@ export function AllLoansScreen({
         )}
         ListEmptyComponent={
           <View style={styles.emptySearchContainer}>
-            <Text style={styles.emptySearchEmoji}>🔍</Text>
+            <View style={styles.emptySearchIconBox}>
+              <SearchIcon size={32} color={Theme.colors.textMuted} strokeWidth={1.5} />
+            </View>
             <Text style={styles.emptySearchTitle}>No matching loans found</Text>
             <Text style={styles.emptySearchSubtitle}>
               Try clearing your search query or selecting a different status filter.
@@ -400,9 +412,10 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     ...Theme.shadows.sm,
   },
-  searchIcon: {
-    fontSize: 14,
+  searchIconWrapper: {
     marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchInput: {
     flex: 1,
@@ -569,9 +582,8 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.borderSubtle,
     marginTop: 12,
   },
-  emptySearchEmoji: {
-    fontSize: 32,
-    marginBottom: 10,
+  emptySearchIconBox: {
+    marginBottom: 12,
   },
   emptySearchTitle: {
     fontSize: 15,

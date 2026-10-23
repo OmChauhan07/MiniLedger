@@ -1,4 +1,5 @@
 // Purpose: Renders a modernized loan card matching MiniLedger Stitch specifications.
+// Updated with vector icon components instead of platform emojis.
 // Imported by: src/features/dashboard/DashboardScreen.tsx, src/features/loans/AllLoansScreen.tsx
 
 import React from 'react';
@@ -12,6 +13,7 @@ import {
   getInitials,
 } from '../utils/format';
 import { Theme } from '../theme/index';
+import { CheckIcon, AlertTriangleIcon, ClockIcon } from './Icons';
 
 interface LoanCardProps {
   loan: Loan;
@@ -83,17 +85,17 @@ export function LoanCard({ loan, onRepay, onPress, isRepaying = false }: LoanCar
           {/* Pill Badge */}
           {loan.isRepaid ? (
             <View style={styles.badgeRepaid}>
-              <Text style={styles.badgeRepaidIcon}>✓</Text>
+              <CheckIcon size={11} color={Theme.colors.statusRepaid} strokeWidth={2.2} />
               <Text style={styles.badgeRepaidText}>Repaid</Text>
             </View>
           ) : isOverdue ? (
             <View style={styles.badgeOverdue}>
-              <Text style={styles.badgeOverdueIcon}>⚠</Text>
+              <AlertTriangleIcon size={11} color={Theme.colors.statusOverdue} />
               <Text style={styles.badgeOverdueText}>{relativeBadge.text}</Text>
             </View>
           ) : (
             <View style={styles.badgePending}>
-              <Text style={styles.badgePendingIcon}>⏱</Text>
+              <ClockIcon size={11} color={Theme.colors.statusPending} strokeWidth={1.6} />
               <Text style={styles.badgePendingText}>{relativeBadge.text}</Text>
             </View>
           )}
@@ -117,14 +119,14 @@ export function LoanCard({ loan, onRepay, onPress, isRepaying = false }: LoanCar
               <ActivityIndicator size="small" color={Theme.colors.statusRepaid} />
             ) : (
               <View style={styles.repayContent}>
-                <Text style={styles.repayIcon}>✓</Text>
+                <CheckIcon size={12} color={Theme.colors.statusRepaid} strokeWidth={2.2} />
                 <Text style={styles.repayText}>Mark Repaid</Text>
               </View>
             )}
           </TouchableOpacity>
         ) : (
           <View style={styles.settledBadge}>
-            <Text style={styles.settledIcon}>✓</Text>
+            <CheckIcon size={12} color={Theme.colors.statusRepaid} strokeWidth={2.2} />
             <Text style={styles.settledText}>Settled</Text>
           </View>
         )}
@@ -135,11 +137,11 @@ export function LoanCard({ loan, onRepay, onPress, isRepaying = false }: LoanCar
 
 const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: Theme.colors.surfaceCard,
+    backgroundColor: '#FFFFFF',
     borderRadius: Theme.borderRadius.xl,
     padding: 14,
     marginBottom: 12,
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: Theme.colors.borderSubtle,
     ...Theme.shadows.card,
   },
@@ -148,6 +150,7 @@ const styles = StyleSheet.create({
   },
   cardOverdue: {
     borderColor: Theme.colors.statusOverdueBorder,
+    borderWidth: 1.5,
   },
   topRow: {
     flexDirection: 'row',
@@ -191,7 +194,7 @@ const styles = StyleSheet.create({
   },
   amountText: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: -0.2,
   },
   badgeRepaid: {
@@ -202,12 +205,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: Theme.borderRadius.full,
     marginTop: 3,
-    gap: 3,
-  },
-  badgeRepaidIcon: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Theme.colors.statusRepaid,
+    gap: 4,
   },
   badgeRepaidText: {
     fontSize: 11,
@@ -222,12 +220,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: Theme.borderRadius.full,
     marginTop: 3,
-    gap: 3,
-  },
-  badgeOverdueIcon: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: Theme.colors.statusOverdue,
+    gap: 4,
   },
   badgeOverdueText: {
     fontSize: 11,
@@ -242,11 +235,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: Theme.borderRadius.full,
     marginTop: 3,
-    gap: 3,
-  },
-  badgePendingIcon: {
-    fontSize: 10,
-    color: Theme.colors.statusPending,
+    gap: 4,
   },
   badgePendingText: {
     fontSize: 11,
@@ -291,12 +280,7 @@ const styles = StyleSheet.create({
   repayContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-  repayIcon: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: Theme.colors.statusRepaid,
+    gap: 5,
   },
   repayText: {
     fontSize: 12,
@@ -307,11 +291,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-  },
-  settledIcon: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: Theme.colors.statusRepaid,
   },
   settledText: {
     fontSize: 12,
