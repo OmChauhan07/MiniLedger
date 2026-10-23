@@ -7,7 +7,7 @@ Purpose: Preserve verified project state between agent sessions. Update this fil
 - [x] Backend health endpoint
 - [x] Database schema/migrations
 - [x] Mock OTP + JWT
-- [ ] Loan APIs + summary
+- [x] Loan APIs + summary
 - [ ] Mobile login/dashboard/forms
 - [ ] Tests and code review
 - [ ] GitHub README verified
@@ -67,8 +67,32 @@ Purpose: Preserve verified project state between agent sessions. Update this fil
   - `npm test`: Passed (12/12 tests passing across health and auth suites).
   - `npm run build`: Passed (clean compilation to dist/).
 - **Review findings and fixes**: Removed foreign key from OtpChallenge to User so new phone numbers can request OTPs before account creation; set Vitest timeout to 20s to accommodate cloud DB roundtrips; verified OTP is never returned in API response.
-- **Remote/push status**: Clean, ready to commit and push.
-- **Next exact action**: Begin Phase 2 (Loan APIs and Summary).
+- **Commit hashes**:
+  - `fa5d99c`: `feat(auth): implement PostgreSQL Prisma models, mock OTP flow, and JWT auth`
+- **Remote/push status**: Pushed to `origin/main`.
+- **Known limitations**: Loan APIs and mobile screens to follow.
+
+### Phase 2 — Loan APIs and Summary (2026-10-23)
+- **Phase/tasks worked on**: Loan creation, authenticated list endpoint, ownership-scoped repayment, decimal-safe summary aggregates, and date-only overdue calculations.
+- **Files created/changed**:
+  - `backend/src/lib/date.ts`: Date-only formatting (`YYYY-MM-DD`), UTC midnight parsing, and calendar-based `isOverdue` evaluation.
+  - `backend/src/lib/money.ts`: Two-decimal string formatting and Prisma.Decimal accumulation without float drift.
+  - `backend/src/modules/loans/loan.schema.ts`: Zod validation for loan creation (friendName, positive amount <=2 decimals, YYYY-MM-DD date) and loan ID param.
+  - `backend/src/modules/loans/loan.service.ts`: `createLoan`, `listLoans` (newest first), and `markLoanRepaid` (with 409 conflict on already-repaid and 404 for non-owned).
+  - `backend/src/modules/loans/loan.controller.ts`: Express controllers for /api/loans endpoints.
+  - `backend/src/modules/loans/loan.routes.ts`: Router mounted with `requireAuth`.
+  - `backend/src/modules/summary/summary.service.ts`: `getUserSummary` calculating totalLent, totalRepaid, outstanding, and overdue amounts with decimal safety.
+  - `backend/src/modules/summary/summary.controller.ts`: Express controller for /api/summary.
+  - `backend/src/modules/summary/summary.routes.ts`: Router mounted with `requireAuth`.
+  - `backend/src/app.ts`: Mounted `/api/loans` and `/api/summary`.
+  - `backend/tests/loans.test.ts`: 8 integration tests covering loan creation, input validation, user isolation, repayment conflict handling, cross-user privacy, overdue updates, and zero-state summary.
+  - `docs/TASKS.md` & `docs/PROGRESS.md`: Updated checklist and execution evidence.
+- **Commands run**:
+  - `npm test`: Passed (20/20 tests passing across health, auth, and loans/summary suites).
+  - `npm run build`: Passed (clean compilation to dist/).
+- **Review findings and fixes**: Verified cross-user isolation: User B attempting to repay User A's loan returns generic 404; duplicate repayment returns 409 conflict; repaid loans are immediately deducted from overdue amount and added to totalRepaid.
+- **Remote/push status**: Ready to commit and push.
+- **Next exact action**: Begin Phase 3 (React Native mobile app).
 
 ## Handoff rule
 At the start of each session, inspect `git status`, this file, `TASKS.md`, and the active phase document. Confirm actual repository state instead of trusting stale checkboxes.

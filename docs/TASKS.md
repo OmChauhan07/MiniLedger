@@ -23,13 +23,13 @@ Purpose: This is the master execution checklist. Mark tasks only after completin
 - [x] Verify OTP is never returned by API and secrets are not committed.
 
 ## Phase 2 — Loan and summary APIs
-- [ ] Create validated loan endpoint.
-- [ ] List authenticated user's loans.
-- [ ] Implement ownership-scoped repayment endpoint.
-- [ ] Implement summary aggregates with decimal-safe handling.
-- [ ] Add consistent error handling and status codes.
-- [ ] Test overdue, repaid, empty and multi-user cases.
-- [ ] Review, test, commit small units, and push only after checks pass.
+- [x] Create validated loan endpoint.
+- [x] List authenticated user's loans.
+- [x] Implement ownership-scoped repayment endpoint.
+- [x] Implement summary aggregates with decimal-safe handling.
+- [x] Add consistent error handling and status codes.
+- [x] Test overdue, repaid, empty and multi-user cases.
+- [x] Review, test, commit small units, and push only after checks pass.
 
 ## Phase 3 — Mobile screens and integration
 - [ ] Set up API client and environment-specific base URL.

@@ -1,10 +1,12 @@
 // Purpose: Configures and exports the Express application with global middlewares, route mounts, and error handling.
-// Imported by: src/index.ts, tests/health.test.ts, tests/auth.test.ts
+// Imported by: src/index.ts, tests/health.test.ts, tests/auth.test.ts, tests/loans.test.ts
 
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { healthRouter } from './routes/health.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
+import { loanRouter } from './modules/loans/loan.routes.js';
+import { summaryRouter } from './modules/summary/summary.routes.js';
 
 export const app = express();
 
@@ -17,6 +19,8 @@ app.use(express.json());
 // Mount API routes under the /api prefix
 app.use('/api', healthRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/loans', loanRouter);
+app.use('/api/summary', summaryRouter);
 
 // Fallback handler for unmapped routes
 app.use((_req: Request, res: Response) => {
