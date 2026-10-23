@@ -85,17 +85,17 @@ export function LoanCard({ loan, onRepay, onPress, isRepaying = false }: LoanCar
           {/* Pill Badge */}
           {loan.isRepaid ? (
             <View style={styles.badgeRepaid}>
-              <CheckIcon size={11} color={Theme.colors.statusRepaid} strokeWidth={2.2} />
+              <CheckIcon size={12} color={Theme.colors.statusRepaid} strokeWidth={2.2} />
               <Text style={styles.badgeRepaidText}>Repaid</Text>
             </View>
           ) : isOverdue ? (
             <View style={styles.badgeOverdue}>
-              <AlertTriangleIcon size={11} color={Theme.colors.statusOverdue} />
+              <AlertTriangleIcon size={12} color={Theme.colors.statusOverdue} />
               <Text style={styles.badgeOverdueText}>{relativeBadge.text}</Text>
             </View>
           ) : (
             <View style={styles.badgePending}>
-              <ClockIcon size={11} color={Theme.colors.statusPending} strokeWidth={1.6} />
+              <ClockIcon size={12} color={Theme.colors.statusPending} strokeWidth={1.8} />
               <Text style={styles.badgePendingText}>{relativeBadge.text}</Text>
             </View>
           )}

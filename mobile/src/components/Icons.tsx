@@ -15,6 +15,9 @@ interface IconProps {
 export function WalletIcon({ size = 18, color = '#0F172A', strokeWidth = 1.8 }: IconProps) {
   const width = size;
   const height = size * 0.78;
+  const isLight = color === '#FFFFFF' || color === '#FFF';
+  const claspBg = isLight ? 'rgba(255, 255, 255, 0.25)' : '#FFFFFF';
+  const dotColor = isLight ? '#FFFFFF' : color;
   return (
     <View style={{ width, height, justifyContent: 'center' }}>
       {/* Wallet Body */}
@@ -22,10 +25,10 @@ export function WalletIcon({ size = 18, color = '#0F172A', strokeWidth = 1.8 }: 
         style={{
           width: '100%',
           height: '100%',
-          borderRadius: 3.5,
+          borderRadius: 4,
           borderWidth: strokeWidth,
           borderColor: color,
-          backgroundColor: 'transparent',
+          backgroundColor: isLight ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
           position: 'relative',
         }}
       >
@@ -42,7 +45,7 @@ export function WalletIcon({ size = 18, color = '#0F172A', strokeWidth = 1.8 }: 
             borderWidth: strokeWidth,
             borderRightWidth: 0,
             borderColor: color,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: claspBg,
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -50,10 +53,10 @@ export function WalletIcon({ size = 18, color = '#0F172A', strokeWidth = 1.8 }: 
           {/* Latch Dot */}
           <View
             style={{
-              width: 2.5,
-              height: 2.5,
-              borderRadius: 1.25,
-              backgroundColor: color,
+              width: strokeWidth + 1,
+              height: strokeWidth + 1,
+              borderRadius: (strokeWidth + 1) / 2,
+              backgroundColor: dotColor,
             }}
           />
         </View>
@@ -203,38 +206,51 @@ export function AlertTriangleIcon({ size = 14, color = '#DC2626' }: IconProps) {
 
 // 6. Clock / Due Time Icon (Replaces ⏱)
 export function ClockIcon({ size = 14, color = '#0F172A', strokeWidth = 1.8 }: IconProps) {
+  const radius = size / 2;
+  const centerSize = Math.max(strokeWidth + 0.6, 2.4);
   return (
     <View
       style={{
         width: size,
         height: size,
-        borderRadius: size / 2,
+        borderRadius: radius,
         borderWidth: strokeWidth,
         borderColor: color,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      {/* Hour hand */}
+      {/* Hour hand (pointing up to 12) */}
       <View
         style={{
           position: 'absolute',
           top: strokeWidth + 0.5,
           width: strokeWidth,
-          height: size / 2 - strokeWidth - 0.5,
+          height: radius - strokeWidth,
           backgroundColor: color,
           borderRadius: strokeWidth / 2,
         }}
       />
-      {/* Minute hand */}
+      {/* Minute hand (pointing right to 3) */}
       <View
         style={{
           position: 'absolute',
-          right: strokeWidth + 0.5,
+          left: radius - strokeWidth / 2,
+          top: radius - strokeWidth / 2,
           height: strokeWidth,
-          width: size / 2 - strokeWidth - 1,
+          width: radius - strokeWidth - 0.5,
           backgroundColor: color,
           borderRadius: strokeWidth / 2,
+        }}
+      />
+      {/* Center Pin */}
+      <View
+        style={{
+          width: centerSize,
+          height: centerSize,
+          borderRadius: centerSize / 2,
+          backgroundColor: color,
+          position: 'absolute',
         }}
       />
     </View>
@@ -242,8 +258,8 @@ export function ClockIcon({ size = 14, color = '#0F172A', strokeWidth = 1.8 }: I
 }
 
 // 7. Search / Magnifier Icon (Replaces 🔍)
-export function SearchIcon({ size = 14, color = '#64748B', strokeWidth = 1.8 }: IconProps) {
-  const circleSize = size * 0.72;
+export function SearchIcon({ size = 16, color = '#64748B', strokeWidth = 1.8 }: IconProps) {
+  const circleSize = size * 0.7;
   return (
     <View style={{ width: size, height: size, position: 'relative' }}>
       {/* Lens Circle */}
@@ -263,13 +279,13 @@ export function SearchIcon({ size = 14, color = '#64748B', strokeWidth = 1.8 }: 
       <View
         style={{
           width: strokeWidth,
-          height: size * 0.42,
+          height: size * 0.45,
           backgroundColor: color,
           position: 'absolute',
           bottom: 0,
           right: 1,
           transform: [{ rotate: '-45deg' }],
-          borderRadius: 1,
+          borderRadius: strokeWidth / 2,
         }}
       />
     </View>

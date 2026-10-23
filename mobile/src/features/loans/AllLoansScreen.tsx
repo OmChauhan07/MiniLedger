@@ -137,7 +137,7 @@ export function AllLoansScreen({
             {/* Search Input Bar */}
             <View style={styles.searchBox}>
               <View style={styles.searchIconWrapper}>
-                <SearchIcon size={16} color={Theme.colors.textMuted} />
+                <SearchIcon size={18} color={Theme.colors.textMuted} strokeWidth={2} />
               </View>
               <TextInput
                 style={styles.searchInput}
@@ -208,8 +208,8 @@ export function AllLoansScreen({
                 activeOpacity={0.7}
               >
                 <ClockIcon
-                  size={12}
-                  color={activeFilter === 'pending' ? '#FFFFFF' : Theme.colors.statusPending}
+                  size={13}
+                  color={Theme.colors.statusPending}
                   strokeWidth={1.8}
                 />
                 <Text
@@ -237,8 +237,8 @@ export function AllLoansScreen({
                 activeOpacity={0.7}
               >
                 <AlertTriangleIcon
-                  size={12}
-                  color={activeFilter === 'overdue' ? '#FFFFFF' : Theme.colors.statusOverdue}
+                  size={13}
+                  color={Theme.colors.statusOverdue}
                 />
                 <Text
                   style={[
@@ -265,8 +265,8 @@ export function AllLoansScreen({
                 activeOpacity={0.7}
               >
                 <CheckIcon
-                  size={12}
-                  color={activeFilter === 'repaid' ? '#FFFFFF' : Theme.colors.statusRepaid}
+                  size={13}
+                  color={Theme.colors.statusRepaid}
                   strokeWidth={2.2}
                 />
                 <Text
@@ -300,7 +300,7 @@ export function AllLoansScreen({
                 )}
               </View>
               <View style={styles.metricsHeroIconBox}>
-                <WalletIcon size={18} color="#FFFFFF" />
+                <WalletIcon size={24} color="#FFFFFF" strokeWidth={2} />
               </View>
             </View>
 
