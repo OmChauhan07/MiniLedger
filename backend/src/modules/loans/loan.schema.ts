@@ -1,4 +1,4 @@
-// Purpose: Zod validation schemas for loan creation and loan route parameter inputs.
+// Purpose: Zod validation schemas for loan creation, loan queries, and loan route parameter inputs.
 // Imported by: src/modules/loans/loan.controller.ts
 
 import { z } from 'zod';
@@ -29,6 +29,18 @@ export const createLoanSchema = z.object({
     }, {
       message: 'Due date must be a valid calendar date.',
     }),
+  type: z
+    .enum(['LENT', 'BORROWED'], {
+      errorMap: () => ({ message: "Type must be either 'LENT' or 'BORROWED'." }),
+    })
+    .default('LENT'),
+});
+
+// Schema validating query parameters for listing loans
+export const listLoansQuerySchema = z.object({
+  type: z.enum(['LENT', 'BORROWED', 'ALL']).optional(),
+  status: z.enum(['pending', 'overdue', 'repaid', 'all']).optional(),
+  search: z.string().optional(),
 });
 
 // Schema validating the loan ID path parameter
@@ -37,3 +49,4 @@ export const loanIdParamSchema = z.object({
 });
 
 export type CreateLoanInput = z.infer<typeof createLoanSchema>;
+export type ListLoansQuery = z.infer<typeof listLoansQuerySchema>;

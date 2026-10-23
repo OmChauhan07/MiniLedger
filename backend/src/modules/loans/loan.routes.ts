@@ -3,7 +3,12 @@
 
 import { Router } from 'express';
 import { requireAuth } from '../../middleware/auth.middleware.js';
-import { createLoanHandler, listLoansHandler, markLoanRepaidHandler } from './loan.controller.js';
+import {
+  createLoanHandler,
+  listLoansHandler,
+  getLoanHandler,
+  markLoanRepaidHandler,
+} from './loan.controller.js';
 
 export const loanRouter = Router();
 
@@ -15,6 +20,9 @@ loanRouter.post('/', createLoanHandler);
 
 // Route for listing all loans belonging to the authenticated user
 loanRouter.get('/', listLoansHandler);
+
+// Route for retrieving a single loan by ID
+loanRouter.get('/:id', getLoanHandler);
 
 // Route for marking an unpaid loan as repaid
 loanRouter.patch('/:id/repay', markLoanRepaidHandler);
