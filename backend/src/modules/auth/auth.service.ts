@@ -121,7 +121,10 @@ export async function sendOtpChallenge(phone: string): Promise<SendOtpResult> {
 
   // Log mock OTP only in non-production environments
   if (config.NODE_ENV !== 'production') {
-    console.log(`[MOCK OTP] Phone: ${phone} | Code: ${otp} (valid for 5 minutes)`);
+    console.log(`\n==================================================`);
+    console.log(`  🔑 [MOCK OTP] Phone: ${phone} | Code: ${otp}`);
+    console.log(`  Valid for 5 minutes (attempt 1/3)`);
+    console.log(`==================================================\n`);
   }
 
   return {

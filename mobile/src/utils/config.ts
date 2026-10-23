@@ -12,6 +12,17 @@ let customApiBaseUrl: string | null = null;
  * Checks whether the app is executing in a production environment.
  */
 export function isProductionEnvironment(): boolean {
+  const configuredUrl = process.env.EXPO_PUBLIC_API_URL || '';
+  const isLocalLan =
+    configuredUrl.includes('localhost') ||
+    configuredUrl.includes('127.0.0.1') ||
+    configuredUrl.includes('10.0.2.2') ||
+    configuredUrl.startsWith('http://192.168.') ||
+    configuredUrl.startsWith('http://10.') ||
+    configuredUrl.startsWith('http://172.');
+  if (isLocalLan) {
+    return false;
+  }
   return !__DEV__ || process.env.NODE_ENV === 'production';
 }
 

@@ -198,7 +198,10 @@ export async function initiateProfileUpdate(
 
   // Log mock OTP only in non-production environments
   if (config.NODE_ENV !== 'production') {
-    console.log(`[MOCK OTP - Profile Update] Phone: ${user.phone} | Code: ${otp} (valid for 5 minutes)`);
+    console.log(`\n==================================================`);
+    console.log(`  🔑 [MOCK OTP - Profile Update] Phone: ${user.phone} | Code: ${otp}`);
+    console.log(`  Valid for 5 minutes`);
+    console.log(`==================================================\n`);
   }
 
   return {
