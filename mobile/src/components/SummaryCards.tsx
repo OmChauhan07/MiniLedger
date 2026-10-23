@@ -37,9 +37,53 @@ export function SummaryCards({
   const hasOverdueReceivable = overdueReceivable > 0;
   const hasOverduePayable = overduePayable > 0;
 
+  // Net position
+  const netBalance = parseFloat(summary?.netBalance ?? '0') || 0;
+  const netStatus = summary?.netStatus ?? 'SETTLED';
+
   return (
     <View style={styles.gridContainer}>
-      {/* Row 1: Outstanding Balances (Lent vs Borrowed) */}
+      {/* Net Position Hero Card */}
+      <View style={styles.netHeroCard}>
+        <View style={styles.netHeroLeft}>
+          <Text style={styles.netHeroKicker}>PORTFOLIO NET BALANCE</Text>
+          <Text style={styles.netHeroValue}>
+            {netStatus === 'SETTLED' ? 'Balanced (₹0)' : `₹${summary?.netBalance ?? '0.00'}`}
+          </Text>
+          <Text style={styles.netHeroSubtext}>
+            {netStatus === 'RECEIVABLE'
+              ? 'Net Receivable • You are owed more overall'
+              : netStatus === 'PAYABLE'
+              ? 'Net Payable • You owe more overall'
+              : 'Equal obligations • Fully balanced'}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.netStatusPill,
+            netStatus === 'RECEIVABLE'
+              ? styles.netStatusPillReceivable
+              : netStatus === 'PAYABLE'
+              ? styles.netStatusPillPayable
+              : styles.netStatusPillSettled,
+          ]}
+        >
+          <Text
+            style={[
+              styles.netStatusPillText,
+              netStatus === 'RECEIVABLE'
+                ? styles.netStatusPillReceivableText
+                : netStatus === 'PAYABLE'
+                ? styles.netStatusPillPayableText
+                : styles.netStatusPillSettledText,
+            ]}
+          >
+            {netStatus}
+          </Text>
+        </View>
+      </View>
+
+      {/* Row 1: Gross Outstanding Balances (Lent vs Borrowed) */}
       <View style={styles.gridRow}>
         {/* 1. Lent Outstanding (They owe you) */}
         <TouchableOpacity
@@ -328,5 +372,65 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Theme.colors.textPrimary,
     marginTop: 2,
+  },
+  netHeroCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0F172A',
+    borderRadius: Theme.borderRadius.xl,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    ...Theme.shadows.card,
+  },
+  netHeroLeft: {
+    flex: 1,
+    marginRight: 12,
+  },
+  netHeroKicker: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.6,
+  },
+  netHeroValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+    letterSpacing: -0.3,
+  },
+  netHeroSubtext: {
+    fontSize: 11,
+    color: '#CBD5E1',
+    marginTop: 2,
+  },
+  netStatusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Theme.borderRadius.full,
+  },
+  netStatusPillReceivable: {
+    backgroundColor: '#DCFCE7',
+  },
+  netStatusPillPayable: {
+    backgroundColor: '#FEE2E2',
+  },
+  netStatusPillSettled: {
+    backgroundColor: '#334155',
+  },
+  netStatusPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  netStatusPillReceivableText: {
+    color: '#15803D',
+  },
+  netStatusPillPayableText: {
+    color: '#B91C1C',
+  },
+  netStatusPillSettledText: {
+    color: '#E2E8F0',
   },
 });

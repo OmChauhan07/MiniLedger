@@ -1,4 +1,4 @@
-// Purpose: Renders the modernized phone number login screen matching MiniLedger Stitch specifications.
+// Purpose: Dedicated phone + password login screen with link to signup and legacy account upgrade support.
 // Imported by: App.tsx
 
 import React, { useState } from 'react';
@@ -12,66 +12,107 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  useWindowDimensions,
 } from 'react-native';
-import { sendOtpApi } from '../../api/auth.api';
+import { loginApi, legacySetupSendOtpApi, legacySetupVerifyApi } from '../../api/auth.api';
+import { User } from '../../types/index';
 import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 
 interface LoginScreenProps {
-  onOtpSent: (normalizedPhone: string) => void;
+  onLoginSuccess: (token: string, user: User) => void;
+  onNavigateToSignup: () => void;
 }
 
-// Formats 10 raw digits into 5-5 grouped format (e.g. "98765 43210")
-function formatPhoneInput(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 10);
-  if (digits.length > 5) {
-    return `${digits.slice(0, 5)} ${digits.slice(5)}`;
-  }
-  return digits;
-}
-
-export function LoginScreen({ onOtpSent }: LoginScreenProps) {
+export function LoginScreen({ onLoginSuccess, onNavigateToSignup }: LoginScreenProps) {
   const [phoneText, setPhoneText] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { width } = useWindowDimensions();
 
-  const rawDigits = phoneText.replace(/\D/g, '');
-  const isValidLength = rawDigits.length === 10;
+  // Legacy User Password Setup Modal State
+  const [isLegacySetup, setIsLegacySetup] = useState(false);
+  const [legacyOtp, setLegacyOtp] = useState('');
+  const [legacyNewPassword, setLegacyNewPassword] = useState('');
+  const [legacyInfoMessage, setLegacyInfoMessage] = useState<string | null>(null);
+
+  const rawPhoneDigits = phoneText.replace(/\D/g, '');
+  const isPhoneValid = rawPhoneDigits.length === 10;
+  const isFormValid = isPhoneValid && password.length > 0;
 
   const handlePhoneChange = (text: string) => {
-    setPhoneText(formatPhoneInput(text));
-    if (errorMessage) {
-      setErrorMessage(null);
+    const digits = text.replace(/\D/g, '').slice(0, 10);
+    if (digits.length > 5) {
+      setPhoneText(`${digits.slice(0, 5)} ${digits.slice(5)}`);
+    } else {
+      setPhoneText(digits);
     }
-  };
-
-  const handleClear = () => {
-    setPhoneText('');
     setErrorMessage(null);
   };
 
-  const handleSendOtp = async () => {
-    if (!isValidLength) {
-      setErrorMessage('Enter a valid 10-digit mobile number');
+  const handleLogin = async () => {
+    if (!isPhoneValid) {
+      setErrorMessage('Please enter a valid 10-digit mobile number.');
       return;
     }
 
-    const normalizedPhone = `+91${rawDigits}`;
+    if (!password) {
+      setErrorMessage('Please enter your password.');
+      return;
+    }
+
+    const normalizedPhone = `+91${rawPhoneDigits}`;
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
-      await sendOtpApi(normalizedPhone);
+      const res = await loginApi(normalizedPhone, password);
       setIsLoading(false);
-      onOtpSent(normalizedPhone);
+      onLoginSuccess(res.token, res.user);
     } catch (err: any) {
       setIsLoading(false);
-      setErrorMessage(err.message || 'Unable to send OTP. Please verify your connection.');
+      if (err.code === 'PASSWORD_NOT_SET') {
+        // Trigger legacy OTP setup flow
+        setIsLegacySetup(true);
+        setLegacyInfoMessage('Your account was created before passwords. We sent an OTP to set your password.');
+        try {
+          await legacySetupSendOtpApi(normalizedPhone);
+        } catch {
+          // Handled in dialog
+        }
+      } else {
+        setErrorMessage(err.message || 'Invalid mobile number or password.');
+      }
     }
   };
 
-  const isSmallDevice = width < 360;
+  const handleLegacyUpgrade = async () => {
+    if (legacyOtp.trim().length !== 6) {
+      setErrorMessage('Please enter the 6-digit OTP.');
+      return;
+    }
+    if (legacyNewPassword.length < 8) {
+      setErrorMessage('New password must be at least 8 characters.');
+      return;
+    }
+
+    const normalizedPhone = `+91${rawPhoneDigits}`;
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await legacySetupVerifyApi({
+        phone: normalizedPhone,
+        otp: legacyOtp.trim(),
+        password: legacyNewPassword,
+      });
+      setIsLoading(false);
+      setIsLegacySetup(false);
+      onLoginSuccess(res.token, res.user);
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrorMessage(err.message || 'Failed to verify OTP or set password.');
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -79,170 +120,178 @@ export function LoginScreen({ onOtpSent }: LoginScreenProps) {
       style={styles.keyboardContainer}
     >
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          isSmallDevice && styles.scrollContentSmall,
-        ]}
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* Brand Header */}
         <View style={styles.brandContainer}>
-          <View style={styles.logoWrapper}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoBadgeSymbol}>₹</Text>
-            </View>
-            <View style={styles.verifiedIconBadge}>
-              <Text style={styles.verifiedIconText}>✓</Text>
-            </View>
+          <View style={styles.logoBadge}>
+            <Text style={styles.logoBadgeSymbol}>₹</Text>
           </View>
           <Text style={styles.brandTitle}>MiniLedger</Text>
-          <Text style={styles.brandSubtitle}>Track peer loans simply and reliably</Text>
+          <Text style={styles.brandSubtitle}>Personal loan ledger & settlement</Text>
         </View>
 
-        {/* Main Phone Input Card */}
+        {/* Main Login Card */}
         <View style={styles.cardContainer}>
-          {/* Welcome Banner */}
-          <View style={styles.infoBanner}>
-            <Text style={styles.infoBannerIcon}>🔒</Text>
-            <Text style={styles.infoBannerText}>
-              Sign in with your phone number to access your lending ledger.
-            </Text>
-          </View>
+          <Text style={styles.cardHeaderTitle}>
+            {isLegacySetup ? 'Set Account Password' : 'Sign In'}
+          </Text>
 
-          {/* Input Label */}
-          <Text style={styles.inputLabel}>Mobile Number</Text>
-
-          {/* Phone Input Box with +91 Chip & Clear Button */}
-          <View
-            style={[
-              styles.inputBox,
-              errorMessage ? styles.inputBoxError : isValidLength ? styles.inputBoxValid : null,
-            ]}
-          >
-            <View style={styles.countryCodeChip}>
-              <Text style={styles.flagText}>🇮🇳</Text>
-              <Text style={styles.countryCodeText}>+91</Text>
-              <Text style={styles.chevronDownText}>▾</Text>
+          {legacyInfoMessage && (
+            <View style={styles.infoBanner}>
+              <Text style={styles.infoText}>{legacyInfoMessage}</Text>
             </View>
+          )}
 
-            <TextInput
-              style={styles.textInput}
-              placeholder="98765 43210"
-              placeholderTextColor="#94A3B8"
-              keyboardType="number-pad"
-              maxLength={11}
-              value={phoneText}
-              onChangeText={handlePhoneChange}
-              autoFocus
-            />
-
-            {phoneText.length > 0 && (
-              <TouchableOpacity
-                onPress={handleClear}
-                style={styles.clearButton}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.clearButtonText}>✕</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Validation Error Banner */}
-          {errorMessage ? (
+          {errorMessage && (
             <View style={styles.errorBanner}>
               <Text style={styles.errorIcon}>⚠</Text>
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
-          ) : (
-            <View style={styles.helperRow}>
-              <Text style={styles.helperIcon}>💬</Text>
-              <Text style={styles.helperText}>
-                We will send an SMS with a 6-digit verification code.
-              </Text>
-            </View>
           )}
 
-          {/* Get OTP Button */}
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              isValidLength && !isLoading
-                ? styles.submitButtonActive
-                : styles.submitButtonDisabled,
-            ]}
-            onPress={handleSendOtp}
-            disabled={!isValidLength || isLoading}
-            activeOpacity={0.85}
-          >
-            {isLoading ? (
-              <ActivityIndicator color={Theme.colors.onPrimary} size="small" />
-            ) : (
-              <View style={styles.submitBtnContent}>
-                <Text
-                  style={[
-                    styles.submitButtonText,
-                    isValidLength && !isLoading
-                      ? styles.submitButtonTextActive
-                      : styles.submitButtonTextDisabled,
-                  ]}
-                >
-                  Get OTP
-                </Text>
-                <Text
-                  style={[
-                    styles.submitArrow,
-                    isValidLength && !isLoading
-                      ? styles.submitArrowActive
-                      : styles.submitArrowDisabled,
-                  ]}
-                >
-                  ➔
-                </Text>
+          {!isLegacySetup ? (
+            /* Normal Login Form */
+            <View>
+              {/* Phone Input */}
+              <Text style={styles.inputLabel}>Mobile Number</Text>
+              <View style={[styles.inputBox, isPhoneValid && styles.inputBoxValid]}>
+                <View style={styles.countryCodeChip}>
+                  <Text style={styles.flagText}>🇮🇳</Text>
+                  <Text style={styles.countryCodeText}>+91</Text>
+                </View>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="98765 43210"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="number-pad"
+                  maxLength={11}
+                  value={phoneText}
+                  onChangeText={handlePhoneChange}
+                  autoFocus
+                />
               </View>
-            )}
+
+              {/* Password Input */}
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={styles.inputBox}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#94A3B8"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={(t) => {
+                    setPassword(t);
+                    setErrorMessage(null);
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.toggleVisibilityBtn}
+                >
+                  <Text style={styles.toggleVisibilityText}>{showPassword ? 'Hide' : 'Show'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Login Button */}
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  isFormValid && !isLoading ? styles.submitButtonActive : styles.submitButtonDisabled,
+                ]}
+                onPress={handleLogin}
+                disabled={!isFormValid || isLoading}
+                activeOpacity={0.85}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Log In ➔</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            /* Legacy Password Setup Form */
+            <View>
+              <Text style={styles.inputLabel}>Enter 6-Digit OTP</Text>
+              <View style={styles.inputBox}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="123456"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  value={legacyOtp}
+                  onChangeText={(t) => setLegacyOtp(t)}
+                  autoFocus
+                />
+              </View>
+
+              <Text style={styles.inputLabel}>Create New Password (min 8 chars)</Text>
+              <View style={styles.inputBox}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Choose password"
+                  placeholderTextColor="#94A3B8"
+                  secureTextEntry={!showPassword}
+                  value={legacyNewPassword}
+                  onChangeText={(t) => setLegacyNewPassword(t)}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.submitButton, styles.submitButtonActive]}
+                onPress={handleLegacyUpgrade}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Save Password & Log In ➔</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setIsLegacySetup(false)}
+                style={styles.cancelLegacyBtn}
+              >
+                <Text style={styles.cancelLegacyText}>Back to Login</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Link to Signup Screen */}
+        <View style={styles.signupPromptRow}>
+          <Text style={styles.signupPromptText}>Don't have an account?</Text>
+          <TouchableOpacity onPress={onNavigateToSignup}>
+            <Text style={styles.signupLinkText}>Create Account</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Security & Features Bento Row */}
+        {/* Security Bento Highlights */}
         <View style={styles.featuresGrid}>
-          {/* 256-bit Encrypted Card */}
           <View style={styles.featureCard}>
-            <View style={styles.featureIconRepaid}>
-              <Text style={styles.featureGlyphGreen}>✓</Text>
+            <View style={styles.featureIconBadge}>
+              <Text style={styles.featureIconText}>✓</Text>
             </View>
             <View style={styles.featureInfo}>
               <Text style={styles.featureLabel}>SECURITY</Text>
-              <Text style={styles.featureTitle} numberOfLines={1}>
-                256-bit Encrypted
-              </Text>
+              <Text style={styles.featureTitle}>Encrypted Hashing</Text>
             </View>
           </View>
-
-          {/* Ledger Sync Card */}
           <View style={styles.featureCard}>
-            <View style={styles.featureIconPrimary}>
-              <Text style={styles.featureGlyphBlue}>↻</Text>
+            <View style={styles.featureIconBadge}>
+              <Text style={styles.featureIconText}>⇅</Text>
             </View>
             <View style={styles.featureInfo}>
-              <Text style={styles.featureLabel}>LEDGER SYNC</Text>
-              <Text style={styles.featureTitle} numberOfLines={1}>
-                Instant Peer Update
-              </Text>
+              <Text style={styles.featureLabel}>SETTLEMENT</Text>
+              <Text style={styles.featureTitle}>Auto Netting</Text>
             </View>
           </View>
-        </View>
-
-        {/* Footer info pill and agreement */}
-        <View style={styles.footerContainer}>
-          <View style={styles.badgePill}>
-            <View style={styles.activeDot} />
-            <Text style={styles.badgePillText}>Expo React Native Demo · Instant Auth</Text>
-          </View>
-          <Text style={styles.legalNotice}>
-            By continuing, you agree to our Terms & Privacy Policy
-          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -261,51 +310,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 28,
   },
-  scrollContentSmall: {
-    paddingHorizontal: 14,
-    paddingVertical: 18,
-  },
   brandContainer: {
     alignItems: 'center',
-    marginBottom: 24,
-  },
-  logoWrapper: {
-    position: 'relative',
-    marginBottom: 12,
+    marginBottom: 20,
   },
   logoBadge: {
-    width: 64,
-    height: 64,
+    width: 60,
+    height: 60,
     borderRadius: Theme.borderRadius.xl,
-    backgroundColor: Theme.colors.surfaceContainerHigh,
+    backgroundColor: '#0F172A',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: Theme.colors.borderSubtle,
-    ...Theme.shadows.sm,
+    borderColor: '#334155',
   },
   logoBadgeSymbol: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '800',
-    color: Theme.colors.primary,
-  },
-  verifiedIconBadge: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: Theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Theme.colors.surfaceCard,
-  },
-  verifiedIconText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
   },
   brandTitle: {
     fontSize: 26,
@@ -314,115 +337,45 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   brandSubtitle: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: 13,
     color: Theme.colors.textSecondary,
     marginTop: 4,
   },
   cardContainer: {
-    backgroundColor: Theme.colors.surfaceCard,
+    backgroundColor: '#FFFFFF',
     borderRadius: Theme.borderRadius.xl,
     padding: 20,
     borderWidth: 1,
     borderColor: Theme.colors.borderSubtle,
-    marginBottom: 20,
+    marginBottom: 16,
     ...Theme.shadows.card,
   },
+  cardHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 14,
+  },
   infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceContainerLow,
+    backgroundColor: '#F1F5F9',
     borderRadius: Theme.borderRadius.md,
-    padding: 12,
-    marginBottom: 18,
+    padding: 10,
+    marginBottom: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: '#0F172A',
   },
-  infoBannerIcon: {
-    fontSize: 16,
-    marginRight: 10,
-  },
-  infoBannerText: {
-    flex: 1,
-    fontSize: 13,
-    color: Theme.colors.textSecondary,
-    lineHeight: 18,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Theme.colors.textSecondary,
-    marginBottom: 8,
-  },
-  inputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 52,
-    backgroundColor: '#FFFFFF',
-    borderRadius: Theme.borderRadius.lg,
-    borderWidth: 1.5,
-    borderColor: Theme.colors.borderSubtle,
-    overflow: 'hidden',
-  },
-  inputBoxValid: {
-    borderColor: Theme.colors.primary,
-  },
-  inputBoxError: {
-    borderColor: Theme.colors.statusOverdue,
-    backgroundColor: Theme.colors.statusOverdueTint,
-  },
-  countryCodeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceContainerLow,
-    height: '100%',
-    paddingHorizontal: 12,
-    borderRightWidth: 1,
-    borderRightColor: Theme.colors.borderSubtle,
-  },
-  flagText: {
-    fontSize: 16,
-    marginRight: 4,
-  },
-  countryCodeText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Theme.colors.textPrimary,
-  },
-  chevronDownText: {
-    fontSize: 11,
-    color: Theme.colors.textSecondary,
-    marginLeft: 3,
-  },
-  textInput: {
-    flex: 1,
-    height: '100%',
-    paddingHorizontal: 12,
-    fontSize: 17,
-    fontWeight: '600',
-    color: Theme.colors.textPrimary,
-    letterSpacing: 0.5,
-  },
-  clearButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  clearButtonText: {
+  infoText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: Theme.colors.textSecondary,
+    color: '#334155',
+    lineHeight: 16,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Theme.colors.statusOverdueTint,
     borderRadius: Theme.borderRadius.sm,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    marginTop: 8,
+    padding: 10,
+    marginBottom: 12,
   },
   errorIcon: {
     fontSize: 14,
@@ -430,106 +383,137 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   errorText: {
+    flex: 1,
     fontSize: 12,
     fontWeight: '600',
     color: Theme.colors.statusOverdue,
   },
-  helperRow: {
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Theme.colors.textSecondary,
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    height: 48,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Theme.borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: Theme.colors.borderSubtle,
+    overflow: 'hidden',
   },
-  helperIcon: {
-    fontSize: 13,
-    marginRight: 6,
+  inputBoxValid: {
+    borderColor: '#0F172A',
   },
-  helperText: {
+  countryCodeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    height: '100%',
+    paddingHorizontal: 12,
+    borderRightWidth: 1,
+    borderRightColor: Theme.colors.borderSubtle,
+  },
+  flagText: {
+    fontSize: 14,
+    marginRight: 4,
+  },
+  countryCodeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  textInput: {
+    flex: 1,
+    height: '100%',
+    paddingHorizontal: 12,
+    fontSize: 15,
+    color: Theme.colors.textPrimary,
+  },
+  toggleVisibilityBtn: {
+    paddingHorizontal: 12,
+  },
+  toggleVisibilityText: {
     fontSize: 12,
-    color: Theme.colors.textMuted,
+    fontWeight: '700',
+    color: '#64748B',
   },
   submitButton: {
-    height: 52,
+    height: 50,
     borderRadius: Theme.borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 18,
+    marginTop: 20,
   },
   submitButtonActive: {
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: '#0F172A',
     ...Theme.shadows.floating,
   },
   submitButtonDisabled: {
-    backgroundColor: Theme.colors.surfaceContainerHighest,
-  },
-  submitBtnContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    backgroundColor: '#E2E8F0',
   },
   submitButtonText: {
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
   },
-  submitButtonTextActive: {
-    color: Theme.colors.onPrimary,
+  cancelLegacyBtn: {
+    alignItems: 'center',
+    marginTop: 12,
   },
-  submitButtonTextDisabled: {
+  cancelLegacyText: {
+    fontSize: 13,
+    color: '#64748B',
+    textDecorationLine: 'underline',
+  },
+  signupPromptRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 20,
+  },
+  signupPromptText: {
+    fontSize: 13,
     color: Theme.colors.textSecondary,
   },
-  submitArrow: {
-    fontSize: 16,
+  signupLinkText: {
+    fontSize: 13,
     fontWeight: '700',
-  },
-  submitArrowActive: {
-    color: Theme.colors.onPrimary,
-  },
-  submitArrowDisabled: {
-    color: Theme.colors.textSecondary,
+    color: '#0F172A',
+    textDecorationLine: 'underline',
   },
   featuresGrid: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 20,
   },
   featureCard: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceCard,
+    backgroundColor: '#FFFFFF',
     borderRadius: Theme.borderRadius.lg,
     padding: 12,
     borderWidth: 1,
     borderColor: Theme.colors.borderSubtle,
     ...Theme.shadows.sm,
   },
-  featureIconRepaid: {
-    width: 32,
-    height: 32,
+  featureIconBadge: {
+    width: 28,
+    height: 28,
     borderRadius: Theme.borderRadius.sm,
-    backgroundColor: Theme.colors.statusRepaidTint,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 8,
   },
-  featureGlyphGreen: {
-    fontSize: 14,
+  featureIconText: {
+    fontSize: 13,
     fontWeight: '800',
-    color: Theme.colors.statusRepaid,
-  },
-  featureIconPrimary: {
-    width: 32,
-    height: 32,
-    borderRadius: Theme.borderRadius.sm,
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  featureGlyphBlue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Theme.colors.primary,
+    color: '#0F172A',
   },
   featureInfo: {
     flex: 1,
@@ -541,40 +525,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   featureTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: Theme.colors.textPrimary,
     marginTop: 1,
-  },
-  footerContainer: {
-    alignItems: 'center',
-    marginTop: 'auto',
-    paddingTop: 12,
-  },
-  badgePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    borderRadius: Theme.borderRadius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    marginBottom: 8,
-  },
-  activeDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: Theme.colors.statusRepaid,
-    marginRight: 6,
-  },
-  badgePillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Theme.colors.textSecondary,
-  },
-  legalNotice: {
-    fontSize: 11,
-    color: Theme.colors.textMuted,
-    textAlign: 'center',
   },
 });

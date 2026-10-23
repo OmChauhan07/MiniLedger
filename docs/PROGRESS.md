@@ -176,15 +176,57 @@ Purpose: Preserve verified project state between agent sessions. Update this fil
   - `7879a78`: `feat(backend): add LENT and BORROWED loan direction support, query filters, and separate summary metrics`
 - **Remote/push status**: Pushed to `origin/main`.
 
-### Phase 6 — Account, Counterparties & Netting (In Progress)
-- **Phase/tasks worked on**: Architecture planning, documentation updates (`SPEC.md`, `SCHEMA.md`, `API.md`, `TASKS.md`, `Design.md`, `docs/phases/PHASE-5-ACCOUNTS-COUNTERPARTIES-NETTING.md`), database non-destructive migration design, and API contract specification.
-- **Key Decisions & Ambiguities Resolved**:
-  - *Password Hashing*: `crypto.scrypt` with per-user 16-byte cryptographically secure salt, stored in `salt:hash` hex format; verified via `crypto.timingSafeEqual`.
-  - *Email*: Optional during registration to prevent drop-off.
-  - *Legacy Users*: Users with `passwordHash = null` are prompted via `PASSWORD_NOT_SET` code to run a one-time OTP verification to set their password.
-  - *Counterparty Discovery*: `GET /api/users/search?q=...` returns only public safe fields (`id`, `name`, `maskedPhone`). Caller is excluded from search results.
-  - *Non-Destructive Netting*: Purely derived view without mutating or auto-repaying individual transaction records.
-- **Status**: Planning and documentation complete; ready for implementation and testing.
+### Phase 6 — Account, Counterparties & Netting (Completed)
+- **Phase/tasks worked on**: Complete end-to-end implementation of Phase 6:
+  - Non-destructive Prisma migration (`User` profile fields + `Loan` counterparty fields).
+  - Secure `scrypt` password hashing and `timingSafeEqual` verification utility.
+  - Multi-step signup flow: Phone -> OTP verification (short-lived `signupToken`) -> Profile setup (Full Name, optional Email, Password & Confirm Password).
+  - Dedicated password login endpoint with generic 401 error and 403 `PASSWORD_NOT_SET` legacy user upgrade path.
+  - Registered user search endpoint (`GET /api/users/search?q=...`) returning only public fields (`id`, `name`, `maskedPhone`) with caller exclusion.
+  - Loan counterparty linking (`counterpartyUserId`, `counterpartyPhone`) with external contact fallback.
+  - Pairwise netting calculations between registered counterparties (`RECEIVABLE`, `PAYABLE`, `SETTLED`) in `GET /api/loans/:id` preserving original records immutably.
+  - Portfolio-level net balance calculations in `GET /api/summary` (`netReceivable`, `netPayable`, `netBalance`, `netStatus`).
+  - Mobile UI updates: `SignupScreen.tsx`, updated `LoginScreen.tsx` (phone + password + legacy setup), `AddLoanModal.tsx` (registered user search + outside contact fallback), `LoanDetailsModal.tsx` (counterparty identity + Pairwise Netting Card), `SummaryCards.tsx` (Net Position Bento Card), `LoanCard.tsx` (registered badge), `AccountScreen.tsx` (name and email display), and `App.tsx` (session persistence).
+- **Files created/changed**:
+  - `backend/prisma/schema.prisma`
+  - `backend/prisma/migrations/20261023170000_account_and_counterparties/migration.sql`
+  - `backend/src/lib/password.ts`
+  - `backend/src/modules/auth/phone.utils.ts`
+  - `backend/src/modules/auth/auth.schema.ts`
+  - `backend/src/modules/auth/auth.service.ts`
+  - `backend/src/modules/auth/auth.controller.ts`
+  - `backend/src/modules/auth/auth.routes.ts`
+  - `backend/src/modules/users/users.service.ts`
+  - `backend/src/modules/users/users.controller.ts`
+  - `backend/src/modules/users/users.routes.ts`
+  - `backend/src/modules/loans/loan.schema.ts`
+  - `backend/src/modules/loans/loan.service.ts`
+  - `backend/src/modules/loans/loan.controller.ts`
+  - `backend/src/modules/summary/summary.service.ts`
+  - `backend/src/app.ts`
+  - `backend/tests/password.test.ts`
+  - `backend/tests/accounts-netting.test.ts`
+  - `mobile/src/types/index.ts`
+  - `mobile/src/api/auth.api.ts`
+  - `mobile/src/api/loan.api.ts`
+  - `mobile/src/api/users.api.ts`
+  - `mobile/src/features/auth/SignupScreen.tsx`
+  - `mobile/src/features/auth/LoginScreen.tsx`
+  - `mobile/src/components/AddLoanModal.tsx`
+  - `mobile/src/components/LoanDetailsModal.tsx`
+  - `mobile/src/components/LoanCard.tsx`
+  - `mobile/src/components/SummaryCards.tsx`
+  - `mobile/src/features/account/AccountScreen.tsx`
+  - `mobile/src/features/dashboard/DashboardScreen.tsx`
+  - `mobile/App.tsx`
+- **Commands run & Exact Results**:
+  - `npx prisma validate`: Schema is valid.
+  - `npx prisma db push`: Synchronized with Neon PostgreSQL Lakebase with 0 errors.
+  - `npx prisma generate`: Generated Prisma Client cleanly.
+  - `npm run build` in `backend/`: 0 errors.
+  - `npx tsc --noEmit` in `mobile/`: 0 errors (strict TypeScript check passed).
+  - `npm test` in `backend/`: 44/44 tests passed across all 6 test suites (`health.test.ts`, `neon.test.ts`, `password.test.ts`, `auth.test.ts`, `loans.test.ts`, `accounts-netting.test.ts`).
+- **Remote/push status**: Ready to commit and push to `origin/main`.
 
 ## Handoff rule
 At the start of each session, inspect `git status`, this file, `TASKS.md`, and the active phase document. Confirm actual repository state instead of trusting stale checkboxes.

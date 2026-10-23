@@ -22,8 +22,14 @@ export async function createLoanHandler(req: Request, res: Response) {
     });
   }
 
-  const newLoan = await createLoan(userId, parseResult.data);
-  return res.status(201).json(newLoan);
+  const result = await createLoan(userId, parseResult.data);
+  if (!result.success) {
+    return res.status(result.status).json({
+      error: result.error,
+    });
+  }
+
+  return res.status(201).json(result.data);
 }
 
 // Handles GET /api/loans to list all loans for the authenticated user with optional filters

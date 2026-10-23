@@ -5,20 +5,45 @@
 export interface User {
   id: string;
   phone: string;
+  name?: string | null;
+  email?: string | null;
+  phoneVerifiedAt?: string | null;
 }
 
 export type LoanDirection = 'LENT' | 'BORROWED';
 
+export interface CounterpartyUser {
+  id: string;
+  name: string;
+  maskedPhone: string;
+}
+
+export interface PairwiseNetting {
+  hasCounterparty: boolean;
+  counterparty?: CounterpartyUser;
+  lentPrincipal: string;
+  borrowedPrincipal: string;
+  netStatus: 'RECEIVABLE' | 'PAYABLE' | 'SETTLED';
+  netAmount: string;
+  explanation: string;
+}
+
 // Full loan item matching backend persistence and API contract
 export interface Loan {
   id: string;
+  userId?: string;
   friendName: string;
   amount: string;
   dueDate: string;
   type: LoanDirection;
   isRepaid: boolean;
   repaidAt: string | null;
+  counterpartyUserId?: string | null;
+  counterpartyPhone?: string | null;
+  counterpartyUser?: CounterpartyUser | null;
+  netting?: PairwiseNetting | null;
   createdAt: string;
+  updatedAt?: string;
   notes?: string;
 }
 
@@ -35,6 +60,12 @@ export interface Summary {
   totalRepaidBorrowed?: string;
   outstandingBorrowed?: string;
   overduePayable?: string;
+
+  // Global Netting
+  netReceivable?: string;
+  netPayable?: string;
+  netBalance?: string;
+  netStatus?: 'RECEIVABLE' | 'PAYABLE' | 'SETTLED';
 
   // Backward-compatible fields
   totalRepaid: string;
@@ -54,5 +85,14 @@ export interface CreateLoanPayload {
   amount: string;
   dueDate: string;
   type?: LoanDirection;
+  counterpartyUserId?: string | null;
+  counterpartyPhone?: string | null;
   notes?: string;
+}
+
+// Registered user search result for counterparty selection
+export interface PublicUserResult {
+  id: string;
+  name: string;
+  maskedPhone: string;
 }

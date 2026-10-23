@@ -141,7 +141,7 @@ export function DashboardScreen({
     setToastVisible(true);
   };
 
-  const userInitial = user.phone ? user.phone.slice(-2) : 'RM';
+  const userInitial = user.name ? getInitials(user.name) : user.phone ? user.phone.slice(-2) : 'ML';
   const overdueCount = loans.filter((l) => {
     if (l.isRepaid) return false;
     const today = new Date().toISOString().slice(0, 10);
@@ -210,7 +210,7 @@ export function DashboardScreen({
                 <View style={styles.greetingCol}>
                   <View style={styles.greetingTitleRow}>
                     <Text style={styles.greetingName}>
-                      Hi, {user.phone ? user.phone.slice(-4) : 'User'}
+                      Hi, {user.name ? user.name.split(' ')[0] : user.phone ? user.phone.slice(-4) : 'User'}
                     </Text>
                     <View style={styles.activeOnlinePill}>
                       <View style={styles.activeOnlineDot} />

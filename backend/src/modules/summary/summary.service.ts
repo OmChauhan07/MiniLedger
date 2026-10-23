@@ -1,4 +1,4 @@
-// Purpose: Calculates authoritative financial summary totals (lent, borrowed, repaid, outstanding, overdue) for a user.
+// Purpose: Calculates authoritative financial summary totals (lent, borrowed, repaid, outstanding, overdue, and net balance) for a user.
 // Imported by: src/modules/summary/summary.controller.ts, tests/loans.test.ts
 
 import { Prisma } from '@prisma/client';
@@ -19,13 +19,19 @@ export interface UserSummary {
   outstandingBorrowed: string;
   overduePayable: string;
 
+  // Global Netting
+  netReceivable: string;
+  netPayable: string;
+  netBalance: string;
+  netStatus: 'RECEIVABLE' | 'PAYABLE' | 'SETTLED';
+
   // Backward-compatible fields
   totalRepaid: string;
   outstandingAmount: string;
   overdueAmount: string;
 }
 
-// Computes decimal-safe aggregates for a user's loans separated by direction (LENT vs BORROWED)
+// Computes decimal-safe aggregates for a user's loans separated by direction (LENT vs BORROWED) and net position
 export async function getUserSummary(userId: string): Promise<UserSummary> {
   const loans = await prisma.loan.findMany({
     where: { userId },
@@ -68,6 +74,24 @@ export async function getUserSummary(userId: string): Promise<UserSummary> {
     }
   }
 
+  // Authoritative global net calculation across all outstanding loans
+  let netReceivable = new Prisma.Decimal(0);
+  let netPayable = new Prisma.Decimal(0);
+  let netBalance = new Prisma.Decimal(0);
+  let netStatus: 'RECEIVABLE' | 'PAYABLE' | 'SETTLED' = 'SETTLED';
+
+  if (outstandingLent.greaterThan(outstandingBorrowed)) {
+    netReceivable = outstandingLent.minus(outstandingBorrowed);
+    netBalance = netReceivable;
+    netStatus = 'RECEIVABLE';
+  } else if (outstandingBorrowed.greaterThan(outstandingLent)) {
+    netPayable = outstandingBorrowed.minus(outstandingLent);
+    netBalance = netPayable;
+    netStatus = 'PAYABLE';
+  } else {
+    netStatus = 'SETTLED';
+  }
+
   return {
     totalLent: formatAmount(totalLent),
     totalRepaidLent: formatAmount(totalRepaidLent),
@@ -78,6 +102,11 @@ export async function getUserSummary(userId: string): Promise<UserSummary> {
     totalRepaidBorrowed: formatAmount(totalRepaidBorrowed),
     outstandingBorrowed: formatAmount(outstandingBorrowed),
     overduePayable: formatAmount(overduePayable),
+
+    netReceivable: formatAmount(netReceivable),
+    netPayable: formatAmount(netPayable),
+    netBalance: formatAmount(netBalance),
+    netStatus,
 
     // Backward-compatible aliases for Lent flows
     totalRepaid: formatAmount(totalRepaidLent),

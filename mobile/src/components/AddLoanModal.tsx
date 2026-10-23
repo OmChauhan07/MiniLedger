@@ -1,4 +1,4 @@
-// Purpose: Modernized Add Loan modal bottom sheet with Lent/Borrowed direction selector matching MiniLedger Stitch specifications.
+// Purpose: Add Loan modal bottom sheet with direction selector, registered user search, and external contact fallback.
 // Imported by: DashboardScreen.tsx, AllLoansScreen.tsx, App.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -15,7 +15,8 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
-import { CreateLoanPayload, LoanDirection } from '../types/index';
+import { CreateLoanPayload, LoanDirection, PublicUserResult } from '../types/index';
+import { searchUsersApi } from '../api/users.api';
 import { Theme } from '../theme/index';
 import { WalletIcon, ClockIcon, CheckIcon, AlertTriangleIcon, LockIcon } from './Icons';
 
@@ -27,7 +28,6 @@ interface AddLoanModalProps {
 }
 
 const PRESET_AMOUNTS = [500, 1000, 2000, 5000];
-const CONTACT_SUGGESTIONS = ['Priya Sharma', 'Karan Dave', 'Sneha Rao', 'Aarav Verma'];
 
 export function AddLoanModal({
   visible,
@@ -36,15 +36,20 @@ export function AddLoanModal({
   defaultDirection = 'LENT',
 }: AddLoanModalProps) {
   const [loanType, setLoanType] = useState<LoanDirection>(defaultDirection);
-  const [friendName, setFriendName] = useState('');
-  const [amount, setAmount] = useState('5000');
+  const [isExternalMode, setIsExternalMode] = useState(false);
 
-  useEffect(() => {
-    if (visible) {
-      setLoanType(defaultDirection);
-      setError(null);
-    }
-  }, [visible, defaultDirection]);
+  // Counterparty state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<PublicUserResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<PublicUserResult | null>(null);
+
+  // External person state
+  const [externalName, setExternalName] = useState('');
+  const [externalPhone, setExternalPhone] = useState('');
+
+  // Loan fields
+  const [amount, setAmount] = useState('5000');
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 30);
@@ -54,11 +59,48 @@ export function AddLoanModal({
     return `${y}-${m}-${day}`;
   });
   const [notes, setNotes] = useState('');
-  const [receiptSimulated, setReceiptSimulated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const { height } = useWindowDimensions();
+
+  useEffect(() => {
+    if (visible) {
+      setLoanType(defaultDirection);
+      setError(null);
+      setSearchQuery('');
+      setSearchResults([]);
+      setSelectedUser(null);
+      setExternalName('');
+      setExternalPhone('');
+      setIsExternalMode(false);
+    }
+  }, [visible, defaultDirection]);
+
+  // Debounced search for registered users
+  useEffect(() => {
+    if (isExternalMode || selectedUser) return;
+    const trimmed = searchQuery.trim();
+    if (trimmed.length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const timeout = setTimeout(async () => {
+      try {
+        const results = await searchUsersApi(trimmed);
+        setSearchResults(results);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [searchQuery, isExternalMode, selectedUser]);
 
   const setQuickDate = (daysAhead: number) => {
     const d = new Date();
@@ -71,13 +113,47 @@ export function AddLoanModal({
 
   const isLent = loanType === 'LENT';
 
+  const handleSelectRegisteredUser = (user: PublicUserResult) => {
+    setSelectedUser(user);
+    setSearchQuery('');
+    setSearchResults([]);
+    setError(null);
+  };
+
+  const handleRemoveSelectedUser = () => {
+    setSelectedUser(null);
+    setSearchQuery('');
+  };
+
   const handleSave = async () => {
     setError(null);
 
-    const trimmedName = friendName.trim();
-    if (!trimmedName) {
-      setError(isLent ? "Please enter borrower's name." : "Please enter lender's name.");
-      return;
+    // Validate Counterparty
+    let friendName = '';
+    let counterpartyUserId: string | undefined = undefined;
+    let counterpartyPhone: string | undefined = undefined;
+
+    if (!isExternalMode && selectedUser) {
+      friendName = selectedUser.name;
+      counterpartyUserId = selectedUser.id;
+    } else if (isExternalMode) {
+      friendName = externalName.trim();
+      if (!friendName) {
+        setError('Please enter contact name.');
+        return;
+      }
+      if (externalPhone.trim()) {
+        counterpartyPhone = externalPhone.trim();
+      }
+    } else {
+      // User hasn't chosen from search or switched to external
+      if (searchQuery.trim().length > 0) {
+        // Fallback: use search query as external name
+        friendName = searchQuery.trim();
+      } else {
+        setError('Please select a registered user or enter contact name.');
+        return;
+      }
     }
 
     const trimmedAmount = amount.trim();
@@ -100,18 +176,15 @@ export function AddLoanModal({
     try {
       setSubmitting(true);
       await onSubmit({
-        friendName: trimmedName,
+        friendName,
         amount: trimmedAmount,
         dueDate: trimmedDate,
         type: loanType,
+        counterpartyUserId,
+        counterpartyPhone,
         notes: notes.trim() ? notes.trim() : undefined,
       });
 
-      // Reset form
-      setFriendName('');
-      setAmount('5000');
-      setNotes('');
-      setReceiptSimulated(false);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to record loan. Please check your connection.');
@@ -127,7 +200,7 @@ export function AddLoanModal({
         style={styles.overlay}
       >
         <View style={[styles.sheetContainer, { maxHeight: height * 0.94 }]}>
-          {/* Android Drag Handle */}
+          {/* Drag Handle */}
           <View style={styles.dragHandleWrapper}>
             <View style={styles.dragHandle} />
           </View>
@@ -167,30 +240,19 @@ export function AddLoanModal({
               </View>
             )}
 
-            {/* 1. Prominent Segmented Direction Selector */}
+            {/* 1. Direction Selector */}
             <View style={styles.directionSection}>
               <Text style={styles.sectionKicker}>CHOOSE LOAN DIRECTION</Text>
               <View style={styles.segmentedControl}>
                 {/* Lent Option */}
                 <TouchableOpacity
-                  style={[
-                    styles.segmentBtn,
-                    isLent && styles.segmentBtnActive,
-                  ]}
+                  style={[styles.segmentBtn, isLent && styles.segmentBtnActive]}
                   onPress={() => setLoanType('LENT')}
                   activeOpacity={0.8}
                 >
                   <View style={styles.segmentContent}>
-                    <WalletIcon
-                      size={14}
-                      color={isLent ? '#FFFFFF' : '#0F172A'}
-                    />
-                    <Text
-                      style={[
-                        styles.segmentText,
-                        isLent && styles.segmentTextActive,
-                      ]}
-                    >
+                    <WalletIcon size={14} color={isLent ? '#FFFFFF' : '#0F172A'} />
+                    <Text style={[styles.segmentText, isLent && styles.segmentTextActive]}>
                       I've Lent
                     </Text>
                   </View>
@@ -201,25 +263,13 @@ export function AddLoanModal({
 
                 {/* Borrowed Option */}
                 <TouchableOpacity
-                  style={[
-                    styles.segmentBtn,
-                    !isLent && styles.segmentBtnActive,
-                  ]}
+                  style={[styles.segmentBtn, !isLent && styles.segmentBtnActive]}
                   onPress={() => setLoanType('BORROWED')}
                   activeOpacity={0.8}
                 >
                   <View style={styles.segmentContent}>
-                    <ClockIcon
-                      size={14}
-                      color={!isLent ? '#FFFFFF' : '#0F172A'}
-                      strokeWidth={1.8}
-                    />
-                    <Text
-                      style={[
-                        styles.segmentText,
-                        !isLent && styles.segmentTextActive,
-                      ]}
-                    >
+                    <ClockIcon size={14} color={!isLent ? '#FFFFFF' : '#0F172A'} strokeWidth={1.8} />
+                    <Text style={[styles.segmentText, !isLent && styles.segmentTextActive]}>
                       I've Borrowed
                     </Text>
                   </View>
@@ -228,63 +278,157 @@ export function AddLoanModal({
                   </Text>
                 </TouchableOpacity>
               </View>
-
-              <View style={styles.directionExplanation}>
-                <Text style={styles.directionExplanationText}>
-                  {isLent
-                    ? '💡 You gave money to a friend. They owe you and must repay by the due date.'
-                    : '💡 You received money from a friend. You owe them and must pay back by the due date.'}
-                </Text>
-              </View>
             </View>
 
-            {/* 2. Borrower / Lender Name Field */}
+            {/* 2. Counterparty Selection (Registered Search vs External Contact) */}
             <View style={styles.fieldCard}>
               <View style={styles.fieldHeaderRow}>
                 <Text style={styles.fieldLabel}>
-                  {isLent ? "Borrower / Friend Name" : "Lender / Friend Name"}
+                  {isLent ? 'Counterparty (Borrower)' : 'Counterparty (Lender)'}
                 </Text>
-                <Text style={styles.requiredLabel}>Required</Text>
-              </View>
-
-              <View style={styles.textInputBox}>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder={isLent ? "e.g. Aarav Sharma" : "e.g. Vikram Malhotra"}
-                  placeholderTextColor={Theme.colors.textMuted}
-                  value={friendName}
-                  onChangeText={(val) => {
-                    setFriendName(val);
-                    if (error) setError(null);
+                <TouchableOpacity
+                  onPress={() => {
+                    setIsExternalMode(!isExternalMode);
+                    setSelectedUser(null);
+                    setSearchQuery('');
+                    setError(null);
                   }}
-                  autoCapitalize="words"
-                />
+                >
+                  <Text style={styles.switchModeLink}>
+                    {isExternalMode ? '🔍 Search Registered Users' : '👤 Add Outside Contact'}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Quick Contact Chips */}
-              <View style={styles.contactsRow}>
-                <Text style={styles.recentLabel}>Recent:</Text>
-                {CONTACT_SUGGESTIONS.map((name) => (
-                  <TouchableOpacity
-                    key={name}
-                    style={styles.contactChip}
-                    onPress={() => setFriendName(name)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.contactChipInitial}>
-                      <Text style={styles.contactChipInitialText}>{name[0]}</Text>
+              {!isExternalMode ? (
+                /* Registered User Search Mode */
+                <View>
+                  {selectedUser ? (
+                    /* Selected Registered User Card */
+                    <View style={styles.selectedUserCard}>
+                      <View style={styles.userAvatarBadge}>
+                        <Text style={styles.userAvatarText}>{selectedUser.name[0] || 'U'}</Text>
+                      </View>
+                      <View style={styles.selectedUserInfo}>
+                        <View style={styles.selectedUserNameRow}>
+                          <Text style={styles.selectedUserName}>{selectedUser.name}</Text>
+                          <View style={styles.verifiedTag}>
+                            <Text style={styles.verifiedTagText}>Registered</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.selectedUserPhone}>{selectedUser.maskedPhone}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={handleRemoveSelectedUser}
+                        style={styles.removeUserBtn}
+                      >
+                        <Text style={styles.removeUserText}>✕</Text>
+                      </TouchableOpacity>
                     </View>
-                    <Text style={styles.contactChipName}>{name.split(' ')[0]}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                  ) : (
+                    /* Search Input Box */
+                    <View>
+                      <View style={styles.textInputBox}>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="Search registered user by name or phone..."
+                          placeholderTextColor={Theme.colors.textMuted}
+                          value={searchQuery}
+                          onChangeText={(val) => {
+                            setSearchQuery(val);
+                            if (error) setError(null);
+                          }}
+                        />
+                        {isSearching && <ActivityIndicator size="small" color="#0F172A" />}
+                      </View>
+
+                      {/* Search Results Dropdown List */}
+                      {searchResults.length > 0 && (
+                        <View style={styles.searchResultsContainer}>
+                          {searchResults.map((user) => (
+                            <TouchableOpacity
+                              key={user.id}
+                              style={styles.searchResultRow}
+                              onPress={() => handleSelectRegisteredUser(user)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={styles.resultAvatar}>
+                                <Text style={styles.resultAvatarText}>{user.name[0] || 'U'}</Text>
+                              </View>
+                              <View style={styles.resultInfo}>
+                                <Text style={styles.resultName}>{user.name}</Text>
+                                <Text style={styles.resultPhone}>{user.maskedPhone}</Text>
+                              </View>
+                              <View style={styles.resultBadge}>
+                                <Text style={styles.resultBadgeText}>Select</Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+
+                      {searchQuery.trim().length >= 2 && searchResults.length === 0 && !isSearching && (
+                        <View style={styles.noResultsBox}>
+                          <Text style={styles.noResultsText}>No registered user found.</Text>
+                          <TouchableOpacity
+                            onPress={() => {
+                              setIsExternalMode(true);
+                              setExternalName(searchQuery.trim());
+                            }}
+                          >
+                            <Text style={styles.addExternalPrompt}>
+                              Add "{searchQuery.trim()}" as outside contact ➔
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+              ) : (
+                /* External / Outside Person Form */
+                <View style={styles.externalForm}>
+                  <View style={styles.externalBadgeBanner}>
+                    <Text style={styles.externalBadgeText}>
+                      Outside Contact • Kept in your private ledger
+                    </Text>
+                  </View>
+
+                  <Text style={styles.subInputLabel}>Contact Name *</Text>
+                  <View style={styles.textInputBox}>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="e.g. Ramesh Uncle, Roommate"
+                      placeholderTextColor={Theme.colors.textMuted}
+                      value={externalName}
+                      onChangeText={(val) => {
+                        setExternalName(val);
+                        if (error) setError(null);
+                      }}
+                      autoFocus
+                    />
+                  </View>
+
+                  <Text style={styles.subInputLabel}>Phone Number (Optional)</Text>
+                  <View style={styles.textInputBox}>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="e.g. +91 98765 43210"
+                      placeholderTextColor={Theme.colors.textMuted}
+                      keyboardType="phone-pad"
+                      value={externalPhone}
+                      onChangeText={setExternalPhone}
+                    />
+                  </View>
+                </View>
+              )}
             </View>
 
-            {/* 3. Amount Section with Quick Increment Chips */}
+            {/* 3. Amount Section */}
             <View style={styles.fieldCard}>
               <View style={styles.fieldHeaderRow}>
                 <Text style={styles.fieldLabel}>
-                  {isLent ? "Lent Principal Amount" : "Borrowed Principal Amount"}
+                  {isLent ? 'Lent Principal Amount' : 'Borrowed Principal Amount'}
                 </Text>
                 <Text style={styles.currencyBadge}>INR (₹)</Text>
               </View>
@@ -304,26 +448,18 @@ export function AddLoanModal({
                 />
               </View>
 
-              {/* Quick Preset Amount Chips */}
+              {/* Preset Amount Chips */}
               <View style={styles.presetGrid}>
                 {PRESET_AMOUNTS.map((val) => {
                   const isSelected = amount === val.toString();
                   return (
                     <TouchableOpacity
                       key={val}
-                      style={[
-                        styles.presetChip,
-                        isSelected && styles.presetChipSelected,
-                      ]}
+                      style={[styles.presetChip, isSelected && styles.presetChipSelected]}
                       onPress={() => setAmount(val.toString())}
                       activeOpacity={0.7}
                     >
-                      <Text
-                        style={[
-                          styles.presetChipText,
-                          isSelected && styles.presetChipTextSelected,
-                        ]}
-                      >
+                      <Text style={[styles.presetChipText, isSelected && styles.presetChipTextSelected]}>
                         ₹{val.toLocaleString('en-IN')}
                       </Text>
                     </TouchableOpacity>
@@ -332,10 +468,10 @@ export function AddLoanModal({
               </View>
             </View>
 
-            {/* 4. Due Date Section with Quick Buttons */}
+            {/* 4. Due Date Section */}
             <View style={styles.fieldCard}>
               <Text style={styles.fieldLabel}>
-                {isLent ? "Expected Repayment Date" : "Payment Due Date"}
+                {isLent ? 'Expected Repayment Date' : 'Payment Due Date'}
               </Text>
               <View style={styles.textInputBox}>
                 <TextInput
@@ -351,32 +487,16 @@ export function AddLoanModal({
               </View>
 
               <View style={styles.quickDatesRow}>
-                <TouchableOpacity
-                  style={styles.datePill}
-                  onPress={() => setQuickDate(7)}
-                  activeOpacity={0.7}
-                >
+                <TouchableOpacity style={styles.datePill} onPress={() => setQuickDate(7)}>
                   <Text style={styles.datePillText}>+7 Days</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.datePill}
-                  onPress={() => setQuickDate(14)}
-                  activeOpacity={0.7}
-                >
+                <TouchableOpacity style={styles.datePill} onPress={() => setQuickDate(14)}>
                   <Text style={styles.datePillText}>+14 Days</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.datePill, styles.datePillPrimary]}
-                  onPress={() => setQuickDate(30)}
-                  activeOpacity={0.7}
-                >
+                <TouchableOpacity style={[styles.datePill, styles.datePillPrimary]} onPress={() => setQuickDate(30)}>
                   <Text style={[styles.datePillText, styles.datePillTextPrimary]}>+30 Days</Text>
                 </TouchableOpacity>
               </View>
-
-              <Text style={styles.dateHintText}>
-                ℹ Defaults to 30 days from today. Used to compute overdue status.
-              </Text>
             </View>
 
             {/* 5. Purpose / Note Field */}
@@ -385,7 +505,7 @@ export function AddLoanModal({
               <View style={styles.textInputBox}>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="e.g. Dinner split, concert tickets, trip advance"
+                  placeholder="e.g. Dinner split, trip advance, rent share"
                   placeholderTextColor={Theme.colors.textMuted}
                   value={notes}
                   onChangeText={setNotes}
@@ -393,11 +513,11 @@ export function AddLoanModal({
               </View>
             </View>
 
-            {/* Privacy note */}
+            {/* Privacy notice */}
             <View style={styles.privacyNote}>
               <LockIcon size={13} color={Theme.colors.textMuted} />
               <Text style={styles.privacyText}>
-                Entries belong strictly to your private authenticated ledger.
+                Original records are immutable. Mutual balances will auto-net.
               </Text>
             </View>
 
@@ -421,12 +541,7 @@ export function AddLoanModal({
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={onClose}
-                disabled={submitting}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={submitting}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
@@ -590,20 +705,6 @@ const styles = StyleSheet.create({
   segmentSubtextActive: {
     color: '#94A3B8',
   },
-  directionExplanation: {
-    marginTop: 8,
-    backgroundColor: '#F8FAFC',
-    borderRadius: Theme.borderRadius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: Theme.colors.borderSubtle,
-  },
-  directionExplanationText: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    lineHeight: 16,
-  },
   fieldCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: Theme.borderRadius.lg,
@@ -624,11 +725,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Theme.colors.textPrimary,
   },
-  requiredLabel: {
-    fontSize: 10,
+  switchModeLink: {
+    fontSize: 11,
     fontWeight: '700',
-    color: Theme.colors.textMuted,
-    textTransform: 'uppercase',
+    color: '#0F172A',
+    textDecorationLine: 'underline',
   },
   currencyBadge: {
     fontSize: 11,
@@ -650,44 +751,156 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Theme.colors.textPrimary,
   },
-  contactsRow: {
+  selectedUserCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 10,
+    backgroundColor: '#F1F5F9',
+    borderRadius: Theme.borderRadius.md,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
   },
-  recentLabel: {
-    fontSize: 11,
-    color: Theme.colors.textMuted,
-    fontWeight: '600',
-  },
-  contactChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceContainerLow,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Theme.borderRadius.full,
-    gap: 4,
-  },
-  contactChipInitial: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  userAvatarBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#0F172A',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 10,
   },
-  contactChipInitialText: {
-    fontSize: 9,
+  userAvatarText: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  contactChipName: {
+  selectedUserInfo: {
+    flex: 1,
+  },
+  selectedUserNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  selectedUserName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  verifiedTag: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  verifiedTagText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  selectedUserPhone: {
     fontSize: 11,
-    color: Theme.colors.textSecondary,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  removeUserBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeUserText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  searchResultsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    marginTop: 6,
+    overflow: 'hidden',
+  },
+  searchResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  resultAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  resultAvatarText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  resultInfo: {
+    flex: 1,
+  },
+  resultName: {
+    fontSize: 13,
     fontWeight: '600',
+    color: '#0F172A',
+  },
+  resultPhone: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  resultBadge: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  resultBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  noResultsBox: {
+    padding: 10,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  addExternalPrompt: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 4,
+    textDecorationLine: 'underline',
+  },
+  externalForm: {
+    gap: 8,
+  },
+  externalBadgeBanner: {
+    backgroundColor: '#F8FAFC',
+    padding: 6,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  externalBadgeText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontStyle: 'italic',
+  },
+  subInputLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
   },
   amountInputRow: {
     flexDirection: 'row',
@@ -765,12 +978,6 @@ const styles = StyleSheet.create({
   datePillTextPrimary: {
     color: '#FFFFFF',
   },
-  dateHintText: {
-    fontSize: 11,
-    color: Theme.colors.textMuted,
-    marginTop: 8,
-    lineHeight: 15,
-  },
   privacyNote: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -815,6 +1022,6 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Theme.colors.textMuted,
+    color: Theme.colors.textSecondary,
   },
 });

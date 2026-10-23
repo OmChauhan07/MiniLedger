@@ -1,21 +1,44 @@
-// Purpose: Implements business logic and ownership-scoped persistence for loan creation, listing, retrieval, and repayment.
+// Purpose: Implements business logic and ownership-scoped persistence for loan creation, listing, retrieval, repayment, and pairwise netting.
 // Imported by: src/modules/loans/loan.controller.ts, tests/loans.test.ts
 
 import { Prisma, Loan, LoanType } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { parseDateOnly, formatDateOnly } from '../../lib/date.js';
 import { formatAmount } from '../../lib/money.js';
+import { maskPhoneNumber } from '../auth/phone.utils.js';
 import { CreateLoanInput } from './loan.schema.js';
+
+export interface FormattedCounterparty {
+  id: string;
+  name: string;
+  maskedPhone: string;
+}
+
+export interface PairwiseNetting {
+  hasCounterparty: boolean;
+  counterparty?: FormattedCounterparty;
+  lentPrincipal: string;
+  borrowedPrincipal: string;
+  netStatus: 'RECEIVABLE' | 'PAYABLE' | 'SETTLED';
+  netAmount: string;
+  explanation: string;
+}
 
 export interface FormattedLoan {
   id: string;
+  userId: string;
   friendName: string;
   amount: string;
   dueDate: string;
   type: 'LENT' | 'BORROWED';
   isRepaid: boolean;
   repaidAt: string | null;
+  counterpartyUserId: string | null;
+  counterpartyPhone: string | null;
+  counterpartyUser?: FormattedCounterparty | null;
+  netting?: PairwiseNetting | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface ListLoansOptions {
@@ -24,22 +47,75 @@ export interface ListLoansOptions {
   search?: string;
 }
 
+type LoanWithCounterparty = Loan & {
+  counterpartyUser?: {
+    id: string;
+    name: string | null;
+    phone: string;
+  } | null;
+};
+
 // Transforms a raw Prisma Loan model into the standardized API response shape with string amounts
-export function formatLoan(loan: Loan): FormattedLoan {
+export function formatLoan(loan: LoanWithCounterparty, netting?: PairwiseNetting | null): FormattedLoan {
+  let counterpartyUser: FormattedCounterparty | null = null;
+  if (loan.counterpartyUser) {
+    counterpartyUser = {
+      id: loan.counterpartyUser.id,
+      name: loan.counterpartyUser.name || 'MiniLedger User',
+      maskedPhone: maskPhoneNumber(loan.counterpartyUser.phone),
+    };
+  }
+
   return {
     id: loan.id,
+    userId: loan.userId,
     friendName: loan.friendName,
     amount: formatAmount(loan.amount),
     dueDate: formatDateOnly(loan.dueDate),
     type: loan.type,
     isRepaid: loan.isRepaid,
     repaidAt: loan.repaidAt ? loan.repaidAt.toISOString() : null,
+    counterpartyUserId: loan.counterpartyUserId ?? null,
+    counterpartyPhone: loan.counterpartyPhone ?? null,
+    counterpartyUser,
+    netting: netting ?? undefined,
     createdAt: loan.createdAt.toISOString(),
+    updatedAt: loan.updatedAt ? loan.updatedAt.toISOString() : loan.createdAt.toISOString(),
   };
 }
 
-// Creates a new loan entry securely associated with the authenticated user with explicit direction
-export async function createLoan(userId: string, input: CreateLoanInput): Promise<FormattedLoan> {
+// Creates a new loan entry securely associated with the authenticated user with explicit direction and optional registered counterparty
+export async function createLoan(userId: string, input: CreateLoanInput) {
+  // Validate counterparty user if provided
+  if (input.counterpartyUserId) {
+    if (input.counterpartyUserId === userId) {
+      return {
+        success: false as const,
+        status: 400,
+        error: {
+          code: 'INVALID_COUNTERPARTY',
+          message: 'You cannot record a loan to yourself.',
+        },
+      };
+    }
+
+    const registeredUser = await prisma.user.findUnique({
+      where: { id: input.counterpartyUserId },
+      select: { id: true, name: true, phone: true },
+    });
+
+    if (!registeredUser) {
+      return {
+        success: false as const,
+        status: 404,
+        error: {
+          code: 'COUNTERPARTY_NOT_FOUND',
+          message: 'Selected registered user could not be found.',
+        },
+      };
+    }
+  }
+
   const loan = await prisma.loan.create({
     data: {
       userId,
@@ -47,10 +123,21 @@ export async function createLoan(userId: string, input: CreateLoanInput): Promis
       amount: new Prisma.Decimal(input.amount),
       dueDate: parseDateOnly(input.dueDate),
       type: (input.type as LoanType) || LoanType.LENT,
+      counterpartyUserId: input.counterpartyUserId || null,
+      counterpartyPhone: input.counterpartyPhone || null,
+    },
+    include: {
+      counterpartyUser: {
+        select: { id: true, name: true, phone: true },
+      },
     },
   });
 
-  return formatLoan(loan);
+  return {
+    success: true as const,
+    status: 201,
+    data: formatLoan(loan),
+  };
 }
 
 // Retrieves all loans owned by the authenticated user with optional direction, status, and search filters
@@ -77,26 +164,113 @@ export async function listLoans(userId: string, options?: ListLoansOptions): Pro
   }
 
   if (options?.search && options.search.trim()) {
-    where.friendName = {
-      contains: options.search.trim(),
-      mode: 'insensitive',
-    };
+    const query = options.search.trim();
+    where.OR = [
+      { friendName: { contains: query, mode: 'insensitive' } },
+      { counterpartyPhone: { contains: query } },
+      { counterpartyUser: { name: { contains: query, mode: 'insensitive' } } },
+    ];
   }
 
   const loans = await prisma.loan.findMany({
     where,
+    include: {
+      counterpartyUser: {
+        select: { id: true, name: true, phone: true },
+      },
+    },
     orderBy: { createdAt: 'desc' },
   });
 
-  return loans.map(formatLoan);
+  return loans.map((loan) => formatLoan(loan));
 }
 
-// Retrieves a single loan strictly owned by the authenticated user
+// Calculates pairwise netting between caller and a registered counterparty across outstanding loans
+export async function calculatePairwiseNetting(
+  userId: string,
+  counterpartyUserId: string,
+  counterpartyUser: { id: string; name: string | null; phone: string }
+): Promise<PairwiseNetting> {
+  // Query all active (unpaid) loans between current user and counterparty
+  const activeLoans = await prisma.loan.findMany({
+    where: {
+      userId,
+      counterpartyUserId,
+      isRepaid: false,
+    },
+    select: {
+      amount: true,
+      type: true,
+    },
+  });
+
+  let lentDecimal = new Prisma.Decimal(0);
+  let borrowedDecimal = new Prisma.Decimal(0);
+
+  for (const item of activeLoans) {
+    if (item.type === 'BORROWED') {
+      borrowedDecimal = borrowedDecimal.add(item.amount);
+    } else {
+      lentDecimal = lentDecimal.add(item.amount);
+    }
+  }
+
+  const counterpartyName = counterpartyUser.name || 'They';
+  const maskedPhone = maskPhoneNumber(counterpartyUser.phone);
+  const formattedCounterparty: FormattedCounterparty = {
+    id: counterpartyUser.id,
+    name: counterpartyUser.name || 'MiniLedger User',
+    maskedPhone,
+  };
+
+  if (lentDecimal.greaterThan(borrowedDecimal)) {
+    const net = lentDecimal.minus(borrowedDecimal);
+    return {
+      hasCounterparty: true,
+      counterparty: formattedCounterparty,
+      lentPrincipal: formatAmount(lentDecimal),
+      borrowedPrincipal: formatAmount(borrowedDecimal),
+      netStatus: 'RECEIVABLE',
+      netAmount: formatAmount(net),
+      explanation: `${counterpartyName} owes you ₹${formatAmount(net)} net`,
+    };
+  }
+
+  if (borrowedDecimal.greaterThan(lentDecimal)) {
+    const net = borrowedDecimal.minus(lentDecimal);
+    return {
+      hasCounterparty: true,
+      counterparty: formattedCounterparty,
+      lentPrincipal: formatAmount(lentDecimal),
+      borrowedPrincipal: formatAmount(borrowedDecimal),
+      netStatus: 'PAYABLE',
+      netAmount: formatAmount(net),
+      explanation: `You owe ${counterpartyName} ₹${formatAmount(net)} net`,
+    };
+  }
+
+  return {
+    hasCounterparty: true,
+    counterparty: formattedCounterparty,
+    lentPrincipal: formatAmount(lentDecimal),
+    borrowedPrincipal: formatAmount(borrowedDecimal),
+    netStatus: 'SETTLED',
+    netAmount: '0.00',
+    explanation: `Settled / No outstanding net balance with ${counterpartyName}`,
+  };
+}
+
+// Retrieves a single loan strictly owned by the authenticated user, computing pairwise netting if registered counterparty
 export async function getLoanById(userId: string, loanId: string) {
   const loan = await prisma.loan.findFirst({
     where: {
       id: loanId,
       userId,
+    },
+    include: {
+      counterpartyUser: {
+        select: { id: true, name: true, phone: true },
+      },
     },
   });
 
@@ -111,16 +285,20 @@ export async function getLoanById(userId: string, loanId: string) {
     };
   }
 
+  let netting: PairwiseNetting | null = null;
+  if (loan.counterpartyUserId && loan.counterpartyUser) {
+    netting = await calculatePairwiseNetting(userId, loan.counterpartyUserId, loan.counterpartyUser);
+  }
+
   return {
     success: true as const,
     status: 200,
-    data: formatLoan(loan),
+    data: formatLoan(loan, netting),
   };
 }
 
 // Marks an owned loan as repaid, enforcing strict ownership and rejecting duplicate repayment attempts
 export async function markLoanRepaid(userId: string, loanId: string) {
-  // Query strictly by both loan ID and authenticated user ID to prevent ID enumeration
   const existingLoan = await prisma.loan.findFirst({
     where: {
       id: loanId,
@@ -128,7 +306,6 @@ export async function markLoanRepaid(userId: string, loanId: string) {
     },
   });
 
-  // Return generic 404 if the loan does not exist or belongs to another user
   if (!existingLoan) {
     return {
       success: false as const,
@@ -140,7 +317,6 @@ export async function markLoanRepaid(userId: string, loanId: string) {
     };
   }
 
-  // Reject with conflict 409 if the loan is already recorded as repaid
   if (existingLoan.isRepaid) {
     return {
       success: false as const,
@@ -152,12 +328,16 @@ export async function markLoanRepaid(userId: string, loanId: string) {
     };
   }
 
-  // Atomically update repayment state with current timestamp
   const updatedLoan = await prisma.loan.update({
     where: { id: loanId },
     data: {
       isRepaid: true,
       repaidAt: new Date(),
+    },
+    include: {
+      counterpartyUser: {
+        select: { id: true, name: true, phone: true },
+      },
     },
   });
 

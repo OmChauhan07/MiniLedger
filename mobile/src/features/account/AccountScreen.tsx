@@ -26,7 +26,7 @@ import {
   ArrowDownLeftIcon,
 } from '../../components/Icons';
 import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
-import { formatCurrencyCompact, checkIsOverdue } from '../../utils/format';
+import { formatCurrencyCompact, checkIsOverdue, getInitials } from '../../utils/format';
 
 interface AccountScreenProps {
   user: User;
@@ -58,7 +58,8 @@ export function AccountScreen({
   const lentCount = lentLoans.length;
   const borrowedCount = borrowedLoans.length;
 
-  const userInitials = user.phone ? user.phone.slice(-2) : 'RM';
+  const displayName = user.name || 'MiniLedger User';
+  const userInitials = user.name ? getInitials(user.name) : user.phone ? user.phone.slice(-2) : 'ML';
 
   const handleConfirmLogout = () => {
     Alert.alert(
@@ -118,12 +119,13 @@ export function AccountScreen({
 
             <View style={styles.profileDetailsCol}>
               <View style={styles.profileNameRow}>
-                <Text style={styles.userNameText}>MiniLedger User</Text>
+                <Text style={styles.userNameText}>{displayName}</Text>
                 <View style={styles.accountTypeBadge}>
                   <Text style={styles.accountTypeText}>Personal</Text>
                 </View>
               </View>
               <Text style={styles.userPhoneText}>{user.phone}</Text>
+              {user.email ? <Text style={styles.userEmailText}>{user.email}</Text> : null}
 
               <View style={styles.verifiedBadgeRow}>
                 <ShieldIcon size={11} color="#0F172A" />
@@ -387,6 +389,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Theme.colors.textSecondary,
     marginTop: 2,
+  },
+  userEmailText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
   },
   verifiedBadgeRow: {
     flexDirection: 'row',

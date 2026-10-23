@@ -1,7 +1,7 @@
-// Purpose: Modal displaying full loan details, timeline metrics, direction awareness, and repayment actions matching MiniLedger Stitch specifications.
+// Purpose: Modal displaying full loan details, counterparty identity, and pairwise netting calculations.
 // Imported by: DashboardScreen.tsx, AllLoansScreen.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -15,6 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import { Loan } from '../types/index';
+import { fetchLoanDetailsApi } from '../api/loan.api';
 import { Theme } from '../theme/index';
 import {
   formatCurrencyCompact,
@@ -33,13 +34,33 @@ interface LoanDetailsModalProps {
 }
 
 export function LoanDetailsModal({
-  loan,
+  loan: initialLoan,
   visible,
   onClose,
   onRepay,
 }: LoanDetailsModalProps) {
+  const [loan, setLoan] = useState<Loan | null>(initialLoan);
   const [isRepaying, setIsRepaying] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const { height } = useWindowDimensions();
+
+  // Load fresh details (including pairwise netting) when modal becomes visible
+  useEffect(() => {
+    setLoan(initialLoan);
+    if (visible && initialLoan?.id) {
+      setLoadingDetails(true);
+      fetchLoanDetailsApi(initialLoan.id)
+        .then((fresh) => {
+          setLoan(fresh);
+        })
+        .catch(() => {
+          // Fall back to initialLoan
+        })
+        .finally(() => {
+          setLoadingDetails(false);
+        });
+    }
+  }, [visible, initialLoan]);
 
   if (!loan) return null;
 
@@ -48,6 +69,7 @@ export function LoanDetailsModal({
   const isOverdue = !isActuallyRepaid && checkIsOverdue(loan.dueDate, false);
   const relativeBadge = getRelativeDueLabel(loan.dueDate, isActuallyRepaid);
   const initials = getInitials(loan.friendName);
+  const hasRegisteredCounterparty = Boolean(loan.counterpartyUserId && loan.counterpartyUser);
 
   const confirmAndRepay = () => {
     const title = isLent ? 'Confirm Repayment' : 'Confirm Payment';
@@ -75,8 +97,8 @@ export function LoanDetailsModal({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={[styles.sheetContainer, { maxHeight: height * 0.92 }]}>
-          {/* Android Drag Handle */}
+        <View style={[styles.sheetContainer, { maxHeight: height * 0.94 }]}>
+          {/* Drag Handle */}
           <View style={styles.dragHandleWrapper}>
             <View style={styles.dragHandle} />
           </View>
@@ -141,9 +163,28 @@ export function LoanDetailsModal({
                   <Text style={styles.avatarText}>{initials}</Text>
                 </View>
                 <View style={styles.borrowerCol}>
-                  <Text style={styles.borrowerName}>{loan.friendName}</Text>
+                  <View style={styles.nameBadgeRow}>
+                    <Text style={styles.borrowerName}>{loan.friendName}</Text>
+                    <View
+                      style={[
+                        styles.counterpartyTag,
+                        hasRegisteredCounterparty ? styles.counterpartyTagReg : styles.counterpartyTagExt,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.counterpartyTagText,
+                          hasRegisteredCounterparty ? styles.counterpartyTagRegText : styles.counterpartyTagExtText,
+                        ]}
+                      >
+                        {hasRegisteredCounterparty ? 'Registered User' : 'Outside Contact'}
+                      </Text>
+                    </View>
+                  </View>
                   <Text style={styles.borrowerSubtitle}>
-                    {isLent ? 'Borrower • Friendly Loan' : 'Lender • Friendly Loan'}
+                    {loan.counterpartyUser?.maskedPhone ||
+                      loan.counterpartyPhone ||
+                      (isLent ? 'Borrower' : 'Lender')}
                   </Text>
                 </View>
               </View>
@@ -158,7 +199,7 @@ export function LoanDetailsModal({
                 </Text>
               </View>
 
-              {/* Dynamic Status Banner */}
+              {/* Status Banner */}
               {isActuallyRepaid ? (
                 <View style={styles.repaidBanner}>
                   <CheckIcon size={14} color={Theme.colors.statusRepaid} strokeWidth={2.2} />
@@ -167,7 +208,7 @@ export function LoanDetailsModal({
                     <Text style={styles.bannerSubtext}>
                       {loan.repaidAt
                         ? `Payment recorded on ${formatDisplayDate(loan.repaidAt.slice(0, 10))}`
-                        : 'Settlement confirmed via UPI transfer'}
+                        : 'Settlement confirmed'}
                     </Text>
                   </View>
                 </View>
@@ -200,24 +241,88 @@ export function LoanDetailsModal({
               )}
             </View>
 
+            {/* Pairwise Netting Card (If Registered Counterparty) */}
+            {hasRegisteredCounterparty && loan.netting && (
+              <View style={styles.nettingCard}>
+                <View style={styles.nettingHeader}>
+                  <Text style={styles.nettingHeaderKicker}>AUTOMATIC PAIRWISE NETTING</Text>
+                  <View
+                    style={[
+                      styles.netStatusChip,
+                      loan.netting.netStatus === 'RECEIVABLE'
+                        ? styles.netStatusChipReceivable
+                        : loan.netting.netStatus === 'PAYABLE'
+                        ? styles.netStatusChipPayable
+                        : styles.netStatusChipSettled,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.netStatusChipText,
+                        loan.netting.netStatus === 'RECEIVABLE'
+                          ? styles.netStatusChipReceivableText
+                          : loan.netting.netStatus === 'PAYABLE'
+                          ? styles.netStatusChipPayableText
+                          : styles.netStatusChipSettledText,
+                      ]}
+                    >
+                      {loan.netting.netStatus}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Net Amount Highlight */}
+                <View style={styles.netAmountRow}>
+                  <Text style={styles.netAmountLabel}>Net Balance:</Text>
+                  <Text style={styles.netAmountValue}>
+                    ₹{loan.netting.netAmount}
+                  </Text>
+                </View>
+
+                {/* Human-friendly Explanation */}
+                <View style={styles.explanationBox}>
+                  <Text style={styles.explanationText}>
+                    {loan.netting.explanation}
+                  </Text>
+                </View>
+
+                {/* Detailed Breakdown */}
+                <View style={styles.nettingBreakdownGrid}>
+                  <View style={styles.nettingMetricCol}>
+                    <Text style={styles.nettingSubLabel}>Total Lent Outstanding</Text>
+                    <Text style={styles.nettingSubValue}>
+                      ₹{loan.netting.lentPrincipal}
+                    </Text>
+                  </View>
+                  <View style={styles.nettingDividerVert} />
+                  <View style={styles.nettingMetricCol}>
+                    <Text style={styles.nettingSubLabel}>Total Borrowed Outstanding</Text>
+                    <Text style={styles.nettingSubValue}>
+                      ₹{loan.netting.borrowedPrincipal}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.nettingAuditNote}>
+                  ℹ Derived calculation. Original transaction records and due dates remain unchanged for auditability.
+                </Text>
+              </View>
+            )}
+
             {/* Key Metrics Bento */}
             <View style={styles.metricsGrid}>
               <View style={styles.metricCard}>
-                <View style={styles.metricTextCol}>
-                  <Text style={styles.metricLabel}>Direction</Text>
-                  <Text style={styles.metricValue}>
-                    {isLent ? "I've Lent" : "I've Borrowed"}
-                  </Text>
-                </View>
+                <Text style={styles.metricLabel}>Direction</Text>
+                <Text style={styles.metricValue}>
+                  {isLent ? "I've Lent" : "I've Borrowed"}
+                </Text>
               </View>
 
               <View style={styles.metricCard}>
-                <View style={styles.metricTextCol}>
-                  <Text style={styles.metricLabel}>Timeline</Text>
-                  <Text style={styles.metricValue}>
-                    {isActuallyRepaid ? 'Archived' : relativeBadge.text}
-                  </Text>
-                </View>
+                <Text style={styles.metricLabel}>Timeline</Text>
+                <Text style={styles.metricValue}>
+                  {isActuallyRepaid ? 'Archived' : relativeBadge.text}
+                </Text>
               </View>
             </View>
 
@@ -226,7 +331,7 @@ export function LoanDetailsModal({
               <Text style={styles.breakdownHeading}>TRANSACTION BREAKDOWN</Text>
 
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Purpose</Text>
+                <Text style={styles.breakdownLabel}>Purpose / Note</Text>
                 <Text style={styles.breakdownValue}>
                   {loan.notes && loan.notes.trim() ? loan.notes : (isLent ? 'Friend loan' : 'Borrowed advance')}
                 </Text>
@@ -246,6 +351,15 @@ export function LoanDetailsModal({
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Target Due Date</Text>
                 <Text style={styles.breakdownValue}>{formatDisplayDate(loan.dueDate)}</Text>
+              </View>
+
+              <View style={styles.breakdownDivider} />
+
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Counterparty Account</Text>
+                <Text style={styles.breakdownValue}>
+                  {hasRegisteredCounterparty ? 'Registered User' : 'External Record'}
+                </Text>
               </View>
 
               <View style={styles.breakdownDivider} />
@@ -280,11 +394,7 @@ export function LoanDetailsModal({
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity
-                style={styles.closeActionBtn}
-                onPress={onClose}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity style={styles.closeActionBtn} onPress={onClose} activeOpacity={0.7}>
                 <Text style={styles.closeActionBtnText}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -436,7 +546,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Theme.colors.surfaceContainerHigh,
+    backgroundColor: '#0F172A',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -444,15 +554,44 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 16,
     fontWeight: '700',
-    color: Theme.colors.textPrimary,
+    color: '#FFFFFF',
   },
   borrowerCol: {
     flex: 1,
+  },
+  nameBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   borrowerName: {
     fontSize: 17,
     fontWeight: '700',
     color: Theme.colors.textPrimary,
+  },
+  counterpartyTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  counterpartyTagReg: {
+    backgroundColor: '#0F172A',
+  },
+  counterpartyTagExt: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  counterpartyTagText: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  counterpartyTagRegText: {
+    color: '#FFFFFF',
+  },
+  counterpartyTagExtText: {
+    color: '#475569',
   },
   borrowerSubtitle: {
     fontSize: 12,
@@ -531,6 +670,117 @@ const styles = StyleSheet.create({
     color: Theme.colors.textSecondary,
     marginTop: 2,
   },
+  nettingCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: Theme.borderRadius.xl,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#0F172A',
+    marginBottom: 14,
+  },
+  nettingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  nettingHeaderKicker: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.5,
+  },
+  netStatusChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  netStatusChipReceivable: {
+    backgroundColor: '#DCFCE7',
+  },
+  netStatusChipPayable: {
+    backgroundColor: '#FEE2E2',
+  },
+  netStatusChipSettled: {
+    backgroundColor: '#E2E8F0',
+  },
+  netStatusChipText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  netStatusChipReceivableText: {
+    color: '#15803D',
+  },
+  netStatusChipPayableText: {
+    color: '#B91C1C',
+  },
+  netStatusChipSettledText: {
+    color: '#475569',
+  },
+  netAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  netAmountLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  netAmountValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  explanationBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Theme.borderRadius.md,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+  },
+  explanationText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  nettingBreakdownGrid: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: Theme.borderRadius.md,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 8,
+  },
+  nettingMetricCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  nettingDividerVert: {
+    width: 1,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 8,
+  },
+  nettingSubLabel: {
+    fontSize: 10,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  nettingSubValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 2,
+  },
+  nettingAuditNote: {
+    fontSize: 10,
+    color: '#64748B',
+    lineHeight: 14,
+    fontStyle: 'italic',
+  },
   metricsGrid: {
     flexDirection: 'row',
     gap: 10,
@@ -544,9 +794,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Theme.colors.borderSubtle,
     ...Theme.shadows.sm,
-  },
-  metricTextCol: {
-    flex: 1,
   },
   metricLabel: {
     fontSize: 11,

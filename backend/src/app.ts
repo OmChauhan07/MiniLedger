@@ -7,6 +7,7 @@ import { healthRouter } from './routes/health.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { loanRouter } from './modules/loans/loan.routes.js';
 import { summaryRouter } from './modules/summary/summary.routes.js';
+import { usersRouter } from './modules/users/users.routes.js';
 
 export const app = express();
 
@@ -21,6 +22,7 @@ app.use('/api', healthRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/loans', loanRouter);
 app.use('/api/summary', summaryRouter);
+app.use('/api/users', usersRouter);
 
 // Fallback handler for unmapped routes
 app.use((_req: Request, res: Response) => {

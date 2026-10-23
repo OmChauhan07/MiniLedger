@@ -35,3 +35,12 @@ export async function markLoanRepaidApi(loanId: string): Promise<Loan> {
     requiresAuth: true,
   });
 }
+
+// Fetches single loan details including pairwise netting calculations
+export async function fetchLoanDetailsApi(loanId: string): Promise<Loan> {
+  return apiRequest<Loan>(`/loans/${loanId}`, {
+    method: 'GET',
+    requiresAuth: true,
+  });
+}
+

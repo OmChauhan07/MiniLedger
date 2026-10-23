@@ -34,6 +34,17 @@ export const createLoanSchema = z.object({
       errorMap: () => ({ message: "Type must be either 'LENT' or 'BORROWED'." }),
     })
     .default('LENT'),
+  counterpartyUserId: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .nullable(),
+  counterpartyPhone: z
+    .string()
+    .trim()
+    .optional()
+    .nullable(),
 });
 
 // Schema validating query parameters for listing loans

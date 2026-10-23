@@ -11,10 +11,19 @@ generator client {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  phone     String   @unique
-  createdAt DateTime @default(now())
-  loans     Loan[]
+  id                String    @id @default(cuid())
+  phone             String    @unique
+  name              String?
+  email             String?
+  passwordHash      String?
+  phoneVerifiedAt   DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now()) @updatedAt
+  loans             Loan[]    @relation("UserLoans")
+  counterpartyLoans Loan[]    @relation("CounterpartyLoans")
+
+  @@index([phone])
+  @@index([name])
 }
 
 enum LoanType {
@@ -23,20 +32,25 @@ enum LoanType {
 }
 
 model Loan {
-  id         String    @id @default(cuid())
-  userId     String
-  friendName String
-  amount     Decimal   @db.Decimal(12, 2)
-  dueDate    DateTime  @db.Date
-  type       LoanType  @default(LENT)
-  isRepaid   Boolean   @default(false)
-  repaidAt   DateTime?
-  createdAt  DateTime  @default(now())
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(cuid())
+  userId             String
+  friendName         String
+  amount             Decimal   @db.Decimal(12, 2)
+  dueDate            DateTime  @db.Date
+  type               LoanType  @default(LENT)
+  isRepaid           Boolean   @default(false)
+  repaidAt           DateTime?
+  counterpartyUserId String?
+  counterpartyPhone  String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+  user               User      @relation("UserLoans", fields: [userId], references: [id], onDelete: Cascade)
+  counterpartyUser   User?     @relation("CounterpartyLoans", fields: [counterpartyUserId], references: [id], onDelete: SetNull)
 
   @@index([userId, dueDate])
   @@index([userId, isRepaid])
   @@index([userId, type, isRepaid])
+  @@index([userId, counterpartyUserId])
 }
 
 model OtpChallenge {

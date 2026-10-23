@@ -103,9 +103,16 @@ export function LoanCard({ loan, onRepay, onPress, isRepaying = false }: LoanCar
             <Text style={[styles.avatarText, { color: avatarTextColor }]}>{initials}</Text>
           </View>
           <View style={styles.borrowerTextCol}>
-            <Text style={styles.borrowerName} numberOfLines={1}>
-              {loan.friendName}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text style={styles.borrowerName} numberOfLines={1}>
+                {loan.friendName}
+              </Text>
+              {loan.counterpartyUserId && (
+                <View style={styles.regBadge}>
+                  <Text style={styles.regBadgeText}>Reg</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.dueDateText}>
               {loan.isRepaid && loan.repaidAt
                 ? `Settled on ${formatDisplayDate(loan.repaidAt.slice(0, 10))}`
@@ -240,10 +247,28 @@ const styles = StyleSheet.create({
   borrowerTextCol: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   borrowerName: {
     fontSize: 15,
     fontWeight: '700',
     color: Theme.colors.textPrimary,
+    flexShrink: 1,
+  },
+  regBadge: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  regBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
   },
   dueDateText: {
     fontSize: 12,

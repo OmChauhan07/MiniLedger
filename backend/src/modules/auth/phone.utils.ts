@@ -38,3 +38,23 @@ export function isValidPhoneNumber(phone: string): boolean {
   // Must match E.164 format: leading '+' followed by 10 to 15 digits
   return /^\+[1-9]\d{9,14}$/.test(phone);
 }
+
+// Safely masks a phone number for public display (e.g., "+919876543210" -> "+91 98••• ••210")
+export function maskPhoneNumber(phone: string): string {
+  if (!phone || phone.length < 8) {
+    return '••••••••••';
+  }
+
+  if (phone.startsWith('+91') && phone.length === 13) {
+    const prefix = phone.slice(0, 3); // +91
+    const head = phone.slice(3, 5); // 98
+    const tail = phone.slice(10); // 210
+    return `${prefix} ${head}••• ••${tail}`;
+  }
+
+  // Generic fallback: keep first 3 and last 2 characters
+  const start = phone.slice(0, 3);
+  const end = phone.slice(-2);
+  return `${start}••••${end}`;
+}
+

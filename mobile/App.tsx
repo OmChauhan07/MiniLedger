@@ -5,10 +5,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, ActivityIndicator, Text, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { User, Loan, Summary, CreateLoanPayload, LoanDirection } from './src/types/index';
-import { getStoredToken, getStoredUser, clearStoredToken, clearStoredUser } from './src/utils/storage';
+import { getStoredToken, getStoredUser, setStoredToken, setStoredUser, clearStoredToken, clearStoredUser } from './src/utils/storage';
 import { fetchSummaryApi } from './src/api/summary.api';
 import { fetchLoansApi, markLoanRepaidApi, createLoanApi } from './src/api/loan.api';
 import { LoginScreen } from './src/features/auth/LoginScreen';
+import { SignupScreen } from './src/features/auth/SignupScreen';
 import { OtpScreen } from './src/features/auth/OtpScreen';
 import { DashboardScreen } from './src/features/dashboard/DashboardScreen';
 import { LentLoansScreen } from './src/features/loans/LentLoansScreen';
@@ -25,6 +26,7 @@ export default function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
   const [pendingPhone, setPendingPhone] = useState<string | null>(null);
 
   // Authenticated tab and ledger state
@@ -86,11 +88,17 @@ export default function App() {
     }
   }, [token, loadLedgerData]);
 
-  const handleAuthSuccess = (authToken: string, authUser: User) => {
+  const handleAuthSuccess = async (authToken: string, authUser: User) => {
     setToken(authToken);
     setUser(authUser);
     setPendingPhone(null);
     setCurrentTab('dashboard');
+    try {
+      await setStoredToken(authToken);
+      await setStoredUser(authUser);
+    } catch (err) {
+      console.warn('Failed to persist session:', err);
+    }
   };
 
   const handleLogout = async () => {
@@ -258,8 +266,16 @@ export default function App() {
           onVerificationSuccess={handleAuthSuccess}
           onChangePhone={() => setPendingPhone(null)}
         />
+      ) : authMode === 'SIGNUP' ? (
+        <SignupScreen
+          onAuthSuccess={handleAuthSuccess}
+          onNavigateToLogin={() => setAuthMode('LOGIN')}
+        />
       ) : (
-        <LoginScreen onOtpSent={(phone) => setPendingPhone(phone)} />
+        <LoginScreen
+          onLoginSuccess={handleAuthSuccess}
+          onNavigateToSignup={() => setAuthMode('SIGNUP')}
+        />
       )}
     </View>
   );
