@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: Theme.colors.borderSubtle,
-    paddingBottom: Platform.OS === 'ios' ? 22 : 8,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
     position: 'relative',
     ...Platform.select({
       ios: {
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
   navBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 60,
+    height: 58,
     paddingHorizontal: 8,
   },
   tabItem: {
@@ -386,9 +386,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 4,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderRadius: Theme.borderRadius.lg,
-    gap: 3,
+    gap: 2,
   },
   tabInnerActive: {
     backgroundColor: '#F1F5F9', // Soft subtle royal black background pill
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: Theme.colors.primary,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   fabWrapper: {
     width: 62,
