@@ -17,7 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Loan, Summary } from '../../types/index';
 import { LoanCard } from '../../components/LoanCard';
 import { LoanDetailsModal } from '../../components/LoanDetailsModal';
-import { SearchIcon, AlertTriangleIcon, CheckIcon, WalletIcon } from '../../components/Icons';
+import { SearchIcon, AlertTriangleIcon, CheckIcon, WalletIcon, ClockIcon } from '../../components/Icons';
 import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 import { formatCurrencyCompact, checkIsOverdue } from '../../utils/format';
 
@@ -207,7 +207,11 @@ export function AllLoansScreen({
                 ]}
                 activeOpacity={0.7}
               >
-                <Text style={styles.chipGlyph}>⏱</Text>
+                <ClockIcon
+                  size={12}
+                  color={activeFilter === 'pending' ? '#FFFFFF' : Theme.colors.statusPending}
+                  strokeWidth={1.8}
+                />
                 <Text
                   style={[
                     styles.chipText,
