@@ -544,4 +544,98 @@ export function ArrowDownLeftIcon({ size = 14, color = '#0F172A', strokeWidth = 
   );
 }
 
+// 16. Edit / Pencil Icon (For editing profile)
+export function EditIcon({ size = 14, color = '#0F172A', strokeWidth = 1.8 }: IconProps) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          width: size * 0.72,
+          height: strokeWidth,
+          backgroundColor: color,
+          transform: [{ rotate: '-45deg' }],
+          borderRadius: strokeWidth / 2,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: 1,
+          right: 2,
+          width: size * 0.28,
+          height: size * 0.28,
+          borderWidth: strokeWidth,
+          borderColor: color,
+          borderRadius: 2,
+          transform: [{ rotate: '-45deg' }],
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 1,
+          left: 1,
+          width: size * 0.25,
+          height: size * 0.25,
+          borderBottomWidth: strokeWidth,
+          borderLeftWidth: strokeWidth,
+          borderColor: color,
+        }}
+      />
+    </View>
+  );
+}
+
+// 17. PDF Document Icon
+export function FilePdfIcon({ size = 16, color = '#0F172A', strokeWidth = 1.8 }: IconProps) {
+  const w = size * 0.8;
+  const h = size;
+  return (
+    <View
+      style={{
+        width: w,
+        height: h,
+        borderRadius: 3,
+        borderWidth: strokeWidth,
+        borderColor: color,
+        position: 'relative',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      {/* Top right corner fold */}
+      <View
+        style={{
+          position: 'absolute',
+          top: -1,
+          right: -1,
+          width: size * 0.3,
+          height: size * 0.3,
+          borderBottomWidth: strokeWidth,
+          borderLeftWidth: strokeWidth,
+          borderColor: color,
+          backgroundColor: '#FFFFFF',
+        }}
+      />
+      {/* Document line 1 */}
+      <View
+        style={{
+          width: '55%',
+          height: strokeWidth,
+          backgroundColor: color,
+          marginBottom: 2,
+        }}
+      />
+      {/* Document line 2 */}
+      <View
+        style={{
+          width: '40%',
+          height: strokeWidth,
+          backgroundColor: color,
+        }}
+      />
+    </View>
+  );
+}
+
 

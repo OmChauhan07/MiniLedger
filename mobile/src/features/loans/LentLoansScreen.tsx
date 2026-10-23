@@ -38,6 +38,7 @@ interface LentLoansScreenProps {
   onRefresh: () => void;
   onRepayLoan: (loanId: string) => Promise<void>;
   onOpenAddLoan: () => void;
+  onViewRelationship?: (counterpartyId: string) => void;
 }
 
 export function LentLoansScreen({
@@ -47,6 +48,7 @@ export function LentLoansScreen({
   onRefresh,
   onRepayLoan,
   onOpenAddLoan,
+  onViewRelationship,
 }: LentLoansScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
@@ -379,6 +381,7 @@ export function LentLoansScreen({
         visible={!!selectedLoan}
         onClose={() => setSelectedLoan(null)}
         onRepay={handleRepay}
+        onViewRelationship={onViewRelationship}
       />
     </SafeAreaView>
   );

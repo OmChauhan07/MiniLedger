@@ -18,6 +18,7 @@ import { AllLoansScreen } from './src/features/loans/AllLoansScreen';
 import { AccountScreen } from './src/features/account/AccountScreen';
 import { BottomNav, TabKey } from './src/components/BottomNav';
 import { AddLoanModal } from './src/components/AddLoanModal';
+import { CounterpartyLedgerModal } from './src/components/CounterpartyLedgerModal';
 import { Toast } from './src/components/Toast';
 import { Theme } from './src/theme/index';
 import { formatCurrencyCompact } from './src/utils/format';
@@ -36,6 +37,11 @@ export default function App() {
   const [isLedgerLoading, setIsLedgerLoading] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [modalDefaultDirection, setModalDefaultDirection] = useState<LoanDirection>('LENT');
+  const [addInitialCounterparty, setAddInitialCounterparty] = useState<{ id: string; name: string } | null>(null);
+
+  // Counterparty Mutual Ledger state
+  const [counterpartyLedgerId, setCounterpartyLedgerId] = useState<string | null>(null);
+  const [isLedgerModalVisible, setIsLedgerModalVisible] = useState(false);
 
   // Toast notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -112,6 +118,15 @@ export default function App() {
     setCurrentTab('dashboard');
   };
 
+  const handleUpdateUser = async (updatedUser: User) => {
+    setUser(updatedUser);
+    try {
+      await setStoredUser(updatedUser);
+    } catch (err) {
+      console.warn('Failed to persist updated user:', err);
+    }
+  };
+
   const handleRepayLoan = async (loanId: string) => {
     const target = loans.find((l) => l.id === loanId);
     try {
@@ -164,6 +179,17 @@ export default function App() {
     } else {
       setModalDefaultDirection('LENT');
     }
+    setAddInitialCounterparty(null);
+    setIsAddModalVisible(true);
+  };
+
+  const handleOpenRelationship = (counterpartyId: string) => {
+    setCounterpartyLedgerId(counterpartyId);
+    setIsLedgerModalVisible(true);
+  };
+
+  const handleRecordNewLoanWithUser = (counterpartyId: string, counterpartyName: string) => {
+    setAddInitialCounterparty({ id: counterpartyId, name: counterpartyName });
     setIsAddModalVisible(true);
   };
 
@@ -202,6 +228,7 @@ export default function App() {
                 onNavigateToBorrowed={() => setCurrentTab('borrowed')}
                 onNavigateToAccount={() => setCurrentTab('account')}
                 onOpenAddLoan={openAddFromNav}
+                onViewRelationship={handleOpenRelationship}
               />
             )}
             {currentTab === 'lent' && (
@@ -212,6 +239,7 @@ export default function App() {
                 onRefresh={loadLedgerData}
                 onRepayLoan={handleRepayLoan}
                 onOpenAddLoan={openAddLent}
+                onViewRelationship={handleOpenRelationship}
               />
             )}
             {currentTab === 'borrowed' && (
@@ -222,6 +250,7 @@ export default function App() {
                 onRefresh={loadLedgerData}
                 onRepayLoan={handleRepayLoan}
                 onOpenAddLoan={openAddBorrowed}
+                onViewRelationship={handleOpenRelationship}
               />
             )}
             {currentTab === 'all-loans' && (
@@ -232,6 +261,7 @@ export default function App() {
                 onRefresh={loadLedgerData}
                 onRepayLoan={handleRepayLoan}
                 onOpenAddLoan={openAddFromNav}
+                onViewRelationship={handleOpenRelationship}
               />
             )}
             {currentTab === 'account' && (
@@ -241,6 +271,12 @@ export default function App() {
                 loans={loans}
                 totalLoansCount={loans.length}
                 onLogout={handleLogout}
+                onUpdateUser={handleUpdateUser}
+                onViewRelationship={handleOpenRelationship}
+                onShowToast={(msg) => {
+                  setToastMessage(msg);
+                  setToastVisible(true);
+                }}
               />
             )}
           </View>
@@ -255,9 +291,25 @@ export default function App() {
           {/* Global Add Loan Modal */}
           <AddLoanModal
             visible={isAddModalVisible}
-            onClose={() => setIsAddModalVisible(false)}
+            onClose={() => {
+              setIsAddModalVisible(false);
+              setAddInitialCounterparty(null);
+            }}
             onSubmit={handleCreateLoan}
             defaultDirection={modalDefaultDirection}
+            onViewRelationship={handleOpenRelationship}
+            initialCounterparty={addInitialCounterparty}
+          />
+
+          {/* Counterparty Relationship & Mutual Ledger Modal */}
+          <CounterpartyLedgerModal
+            visible={isLedgerModalVisible}
+            counterpartyId={counterpartyLedgerId}
+            onClose={() => {
+              setIsLedgerModalVisible(false);
+              setCounterpartyLedgerId(null);
+            }}
+            onRecordNewLoan={handleRecordNewLoanWithUser}
           />
         </View>
       ) : pendingPhone ? (

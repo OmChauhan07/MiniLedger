@@ -1,4 +1,4 @@
-// Purpose: Account settings screen displaying user profile, security preferences, and ledger export matching MiniLedger Stitch specifications.
+// Purpose: Account settings screen displaying user profile, editable details, mutual counterparties, and PDF ledger export matching MiniLedger specifications.
 // Imported by: App.tsx
 
 import React, { useState } from 'react';
@@ -17,16 +17,19 @@ import { User, Summary, Loan } from '../../types/index';
 import {
   ShieldIcon,
   CheckIcon,
-  LockIcon,
   ExportIcon,
+  FilePdfIcon,
   LogoutIcon,
   ChatIcon,
   InfoIcon,
   ArrowUpRightIcon,
   ArrowDownLeftIcon,
+  EditIcon,
 } from '../../components/Icons';
+import { EditProfileModal } from '../../components/EditProfileModal';
+import { ExportPdfModal } from '../../components/ExportPdfModal';
 import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
-import { formatCurrencyCompact, checkIsOverdue, getInitials } from '../../utils/format';
+import { formatCurrencyCompact, getInitials } from '../../utils/format';
 
 interface AccountScreenProps {
   user: User;
@@ -34,7 +37,9 @@ interface AccountScreenProps {
   loans?: Loan[];
   totalLoansCount: number;
   onLogout: () => void;
-  onExportCsv?: () => void;
+  onUpdateUser?: (updatedUser: User) => void;
+  onViewRelationship?: (counterpartyId: string) => void;
+  onShowToast?: (message: string) => void;
 }
 
 export function AccountScreen({
@@ -43,10 +48,13 @@ export function AccountScreen({
   loans = [],
   totalLoansCount,
   onLogout,
-  onExportCsv,
+  onUpdateUser,
+  onViewRelationship,
+  onShowToast,
 }: AccountScreenProps) {
-  const [screenLockEnabled, setScreenLockEnabled] = useState(true);
   const [remindersEnabled, setRemindersEnabled] = useState(true);
+  const [isEditProfileVisible, setIsEditProfileVisible] = useState(false);
+  const [isExportPdfVisible, setIsExportPdfVisible] = useState(false);
 
   const totalLent = parseFloat(summary?.totalLent ?? '0') || 0;
   const totalBorrowed = parseFloat(summary?.totalBorrowed ?? '0') || 0;
@@ -57,6 +65,18 @@ export function AccountScreen({
   const borrowedLoans = loans.filter((l) => l.type === 'BORROWED');
   const lentCount = lentLoans.length;
   const borrowedCount = borrowedLoans.length;
+
+  const registeredCounterparties = React.useMemo(() => {
+    const map = new Map<string, { id: string; name: string; maskedPhone: string }>();
+    for (const loan of loans) {
+      if (loan.counterpartyUser && loan.counterpartyUserId) {
+        if (!map.has(loan.counterpartyUser.id)) {
+          map.set(loan.counterpartyUser.id, loan.counterpartyUser);
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [loans]);
 
   const displayName = user.name || 'MiniLedger User';
   const userInitials = user.name ? getInitials(user.name) : user.phone ? user.phone.slice(-2) : 'ML';
@@ -72,20 +92,22 @@ export function AccountScreen({
     );
   };
 
-  const handleExport = () => {
-    if (onExportCsv) {
-      onExportCsv();
+  const handleProfileUpdated = (updatedUser: User) => {
+    if (onUpdateUser) {
+      onUpdateUser(updatedUser);
+    }
+    if (onShowToast) {
+      onShowToast('Profile details updated successfully!');
+    }
+  };
+
+  const handleExportSuccess = (filename: string, recordCount: number) => {
+    if (onShowToast) {
+      onShowToast(`Exported ${recordCount} records to ${filename}`);
     } else {
-      if (loans.length === 0) {
-        Alert.alert('Export Ledger', 'No ledger records available to export.');
-        return;
-      }
-      const headers = ['ID', 'Type', 'Counterparty', 'Amount (INR)', 'Due Date', 'Status', 'Notes', 'Created At'];
-      const sampleRow = `\n\nSample:\n${headers.join(',')}\n"${loans[0].id}","${loans[0].type || 'LENT'}","${loans[0].friendName}",₹${loans[0].amount}`;
       Alert.alert(
-        'Export Ledger (CSV)',
-        `Ready to export ${loans.length} ledger records (including Lent and Borrowed direction).${sampleRow}`,
-        [{ text: 'OK' }]
+        'Ledger Export Complete',
+        `Generated statement with ${recordCount} records. You can view or save ${filename} via your device.`
       );
     }
   };
@@ -127,9 +149,21 @@ export function AccountScreen({
               <Text style={styles.userPhoneText}>{user.phone}</Text>
               {user.email ? <Text style={styles.userEmailText}>{user.email}</Text> : null}
 
-              <View style={styles.verifiedBadgeRow}>
-                <ShieldIcon size={11} color="#0F172A" />
-                <Text style={styles.verifiedBadgeText}>Phone Verified</Text>
+              <View style={styles.badgeAndActionRow}>
+                <View style={styles.verifiedBadgeRow}>
+                  <ShieldIcon size={11} color="#0F172A" />
+                  <Text style={styles.verifiedBadgeText}>Phone Verified</Text>
+                </View>
+
+                {/* Edit Profile Button */}
+                <TouchableOpacity
+                  style={styles.editProfileBtn}
+                  activeOpacity={0.7}
+                  onPress={() => setIsEditProfileVisible(true)}
+                >
+                  <EditIcon size={11} color="#0F172A" />
+                  <Text style={styles.editProfileBtnText}>Edit Profile</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -161,6 +195,40 @@ export function AccountScreen({
             </View>
           </View>
         </View>
+
+        {/* Registered Counterparties Mutual Ledgers */}
+        {registeredCounterparties.length > 0 && (
+          <View style={{ marginBottom: 14 }}>
+            <Text style={styles.sectionHeaderLabel}>
+              REGISTERED COUNTERPARTIES ({registeredCounterparties.length})
+            </Text>
+            <View style={styles.menuCard}>
+              {registeredCounterparties.map((cp, idx) => (
+                <React.Fragment key={cp.id}>
+                  {idx > 0 && <View style={styles.menuDivider} />}
+                  <TouchableOpacity
+                    style={styles.menuRow}
+                    activeOpacity={0.7}
+                    onPress={() => onViewRelationship?.(cp.id)}
+                  >
+                    <View style={styles.menuIconBox}>
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A' }}>
+                        {getInitials(cp.name)}
+                      </Text>
+                    </View>
+                    <View style={styles.menuTextCol}>
+                      <Text style={styles.menuTitle}>{cp.name}</Text>
+                      <Text style={styles.menuSubtitle}>{cp.maskedPhone} • View mutual ledger</Text>
+                    </View>
+                    <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#0284C7' }}>Ledger ↗</Text>
+                    </View>
+                  </TouchableOpacity>
+                </React.Fragment>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Section 1: Preferences */}
         <Text style={styles.sectionHeaderLabel}>LEDGER & PREFERENCES</Text>
@@ -199,40 +267,21 @@ export function AccountScreen({
           </View>
         </View>
 
-        {/* Section 2: Security & Portability */}
-        <Text style={styles.sectionHeaderLabel}>SECURITY & DATA</Text>
+        {/* Section 2: Data & Portability (Biometrics removed; PDF export added) */}
+        <Text style={styles.sectionHeaderLabel}>DATA & PORTABILITY</Text>
         <View style={styles.menuCard}>
-          {/* Screen Lock Security Row */}
-          <View style={styles.menuRow}>
-            <View style={styles.menuIconBox}>
-              <LockIcon size={16} color="#0F172A" />
-            </View>
-            <View style={styles.menuTextCol}>
-              <Text style={styles.menuTitle}>Screen Lock Security</Text>
-              <Text style={styles.menuSubtitle}>Biometric & Device PIN protection</Text>
-            </View>
-            <Switch
-              value={screenLockEnabled}
-              onValueChange={setScreenLockEnabled}
-              trackColor={{ false: Theme.colors.borderSubtle, true: Theme.colors.primary }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-
-          <View style={styles.menuDivider} />
-
-          {/* Export Records Row */}
+          {/* Export Records as PDF Row */}
           <TouchableOpacity
-            onPress={handleExport}
+            onPress={() => setIsExportPdfVisible(true)}
             style={styles.menuRow}
             activeOpacity={0.7}
           >
             <View style={styles.menuIconBox}>
-              <ExportIcon size={16} color="#0F172A" />
+              <FilePdfIcon size={16} color="#0F172A" />
             </View>
             <View style={styles.menuTextCol}>
-              <Text style={styles.menuTitle}>Export Ledger Records</Text>
-              <Text style={styles.menuSubtitle}>Download as standard CSV format</Text>
+              <Text style={styles.menuTitle}>Export Ledger as PDF</Text>
+              <Text style={styles.menuSubtitle}>Download, view, or share personal statement</Text>
             </View>
             <Text style={styles.chevronArrow}>➔</Text>
           </TouchableOpacity>
@@ -269,6 +318,21 @@ export function AccountScreen({
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Edit Profile Modal (with phone OTP verification) */}
+      <EditProfileModal
+        visible={isEditProfileVisible}
+        user={user}
+        onClose={() => setIsEditProfileVisible(false)}
+        onProfileUpdated={handleProfileUpdated}
+      />
+
+      {/* Export PDF Modal (with filters and native sharing) */}
+      <ExportPdfModal
+        visible={isExportPdfVisible}
+        onClose={() => setIsExportPdfVisible(false)}
+        onExportSuccess={handleExportSuccess}
+      />
     </SafeAreaView>
   );
 }
@@ -356,11 +420,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
-  verifiedCheckText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
   profileDetailsCol: {
     flex: 1,
   },
@@ -395,25 +454,43 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 1,
   },
+  badgeAndActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    gap: 8,
+  },
   verifiedBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1.2,
     borderColor: '#0F172A',
-    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Theme.borderRadius.full,
+    gap: 4,
+    ...Theme.shadows.sm,
+  },
+  verifiedBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  editProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: Theme.colors.borderSubtle,
     paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: Theme.borderRadius.full,
-    marginTop: 6,
-    gap: 5,
-    ...Theme.shadows.sm,
+    gap: 4,
   },
-  shieldIcon: {
-    fontSize: 11,
-  },
-  verifiedBadgeText: {
-    fontSize: 11,
+  editProfileBtnText: {
+    fontSize: 10,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -515,9 +592,6 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.statusOverdueTint,
   },
   menuIconText: {
-    fontSize: 16,
-  },
-  menuIconDangerText: {
     fontSize: 16,
   },
   menuTextCol: {

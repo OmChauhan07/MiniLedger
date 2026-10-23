@@ -114,3 +114,19 @@ One individual who wants to keep track of personal loans made to friends.
 - **Derived Balance Netting:** For any two registered users, the system computes the pairwise net balance ($|L - B|$) while strictly preserving all original underlying transactions, due dates, and repayment records.
 - **Overdue Invariant:** Gross overdue receivables and gross overdue payables are tracked separately. Due dates are never synthesized or netted.
 
+## 11. Cross-Account Visibility & Mutual Relationships (Phase 6)
+- **Shared Authoritative Transaction:** A single loan record represents the financial agreement between two registered users (`userId` = creator, `counterpartyUserId` = registered counterparty).
+- **Participant Perspective Inversion:** 
+  - If User A records a LENT loan to User B: User A sees Lent (asset/receivable from User B), User B sees Borrowed (liability/payable to User A).
+  - If User A records a BORROWED loan from User B: User A sees Borrowed (payable to User B), User B sees Lent (receivable from User A).
+- **Bilateral Loan Discovery:** Authenticated queries for `listLoans`, `getLoanById`, and `getUserSummary` retrieve transactions where the user is either the creator (`userId`) OR the counterparty (`counterpartyUserId`).
+- **Mutual Relationship Ledger:** Authenticated endpoint `GET /api/users/:counterpartyId/relationship` provides an isolated, comprehensive view of the pairwise ledger between two users, including total lent, total borrowed, active/settled breakdown, net balance, and transaction history.
+- **Provenance & Attribution:** Records clearly state who recorded the entry (`isCreator`, `recordedByName`) to ensure full transparency without forcing a blocking approval flow.
+- **Privacy & Isolation:** Unrelated users (User C) cannot view, modify, or infer transactions between User A and User B. External contacts never appear in another user's ledger.
+
+## 12. Account Editing, OTP-Protected Changes & PDF Export (Phase 7)
+- **Editable Profile with OTP Protection:** Authenticated users can edit `name` and `email`. Changes are validated and cryptographically bound via a signed `updateToken` to an OTP challenge sent to the verified phone number. Changes are only committed upon successful OTP verification.
+- **No-Op Protection:** Submitting identical profile details does not generate an OTP challenge or dispatch an SMS.
+- **Phone Number Immutability:** Phone number changes require separate multi-step ownership proof and are kept read-only for standard profile edits.
+- **Screen Lock Removal:** The placeholder Screen Lock / Biometrics toggle is removed from the UI while keeping core phone OTP, password, and JWT authentication intact.
+- **Authoritative PDF Ledger Export:** Personal loan ledger statement generation via `POST /api/ledger/export/pdf`. Features bank-statement styling, caller-perspective inversion, date/status/direction filtering, gross reconciliations, and mobile native sharing.

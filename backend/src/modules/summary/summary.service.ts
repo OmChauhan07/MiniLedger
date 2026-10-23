@@ -34,7 +34,12 @@ export interface UserSummary {
 // Computes decimal-safe aggregates for a user's loans separated by direction (LENT vs BORROWED) and net position
 export async function getUserSummary(userId: string): Promise<UserSummary> {
   const loans = await prisma.loan.findMany({
-    where: { userId },
+    where: {
+      OR: [
+        { userId },
+        { counterpartyUserId: userId },
+      ],
+    },
   });
 
   let totalLent = new Prisma.Decimal(0);
@@ -49,8 +54,12 @@ export async function getUserSummary(userId: string): Promise<UserSummary> {
 
   for (const loan of loans) {
     const pastDue = isOverdue(loan.dueDate, loan.isRepaid);
+    const isCallerCreator = loan.userId === userId;
+    const effectiveType = isCallerCreator
+      ? loan.type
+      : loan.type === 'LENT' ? 'BORROWED' : 'LENT';
 
-    if (loan.type === 'BORROWED') {
+    if (effectiveType === 'BORROWED') {
       totalBorrowed = totalBorrowed.add(loan.amount);
       if (loan.isRepaid) {
         totalRepaidBorrowed = totalRepaidBorrowed.add(loan.amount);

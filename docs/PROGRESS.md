@@ -226,7 +226,82 @@ Purpose: Preserve verified project state between agent sessions. Update this fil
   - `npm run build` in `backend/`: 0 errors.
   - `npx tsc --noEmit` in `mobile/`: 0 errors (strict TypeScript check passed).
   - `npm test` in `backend/`: 44/44 tests passed across all 6 test suites (`health.test.ts`, `neon.test.ts`, `password.test.ts`, `auth.test.ts`, `loans.test.ts`, `accounts-netting.test.ts`).
-- **Remote/push status**: Ready to commit and push to `origin/main`.
+- **Remote/push status**: Commits `45fa710` and `66cefa2` pushed to `origin/main`.
+
+### Phase 6 — Registered-User Relationships and Cross-Account Visibility (2026-10-23)
+- **Phase/tasks worked on**: Cross-account visibility, participant-aware loan retrieval, direction inversion, bilateral pairwise netting, and counterparty relationship ledger endpoint and mobile UI.
+- **Root Cause Identified**:
+  - `listLoans`, `getLoanById`, `markLoanRepaid`, and `getUserSummary` filtered unilaterally by `userId` (the record creator).
+  - Counterparty `counterpartyUserId` was completely excluded from finding, viewing, or aggregating shared loans.
+  - Loan direction was never inverted from counterparty's perspective (`LENT` relative to creator is `BORROWED` relative to counterparty).
+  - No dedicated endpoint or UI existed to view the mutual relationship/ledger between two registered users.
+- **Files created/changed**:
+  - `docs/phases/PHASE-6-CROSS-ACCOUNT-RELATIONSHIPS.md`
+  - `docs/SPEC.md`
+  - `docs/API.md`
+  - `docs/TASKS.md`
+  - `docs/PROGRESS.md`
+  - `backend/src/modules/loans/loan.service.ts`
+  - `backend/src/modules/summary/summary.service.ts`
+  - `backend/src/modules/users/users.service.ts`
+  - `backend/src/modules/users/users.controller.ts`
+  - `backend/src/modules/users/users.routes.ts`
+  - `backend/tests/cross-account-visibility.test.ts`
+  - `mobile/src/types/index.ts`
+  - `mobile/src/api/users.api.ts`
+  - `mobile/src/components/CounterpartyLedgerModal.tsx`
+  - `mobile/src/components/AddLoanModal.tsx`
+  - `mobile/src/components/LoanDetailsModal.tsx`
+  - `mobile/src/components/LoanCard.tsx`
+  - `mobile/src/features/loans/LentLoansScreen.tsx`
+  - `mobile/src/features/loans/BorrowedLoansScreen.tsx`
+  - `mobile/src/features/loans/AllLoansScreen.tsx`
+  - `mobile/src/features/dashboard/DashboardScreen.tsx`
+  - `mobile/src/features/account/AccountScreen.tsx`
+  - `mobile/App.tsx`
+- **Commands run & Exact Results**:
+  - `npm run build` in `backend/`: 0 errors.
+  - `npx vitest run tests/cross-account-visibility.test.ts`: 8/8 tests passed.
+  - `npm test` in `backend/`: 52/52 tests passed across all 7 test suites (`health.test.ts`, `neon.test.ts`, `password.test.ts`, `auth.test.ts`, `loans.test.ts`, `cross-account-visibility.test.ts`, `accounts-netting.test.ts`).
+  - `npx tsc --noEmit` in `mobile/`: 0 errors (strict TypeScript check passed).
+- **Status**: Phase 6 Implementation & Verification 100% Complete.
+
+## 2026-10-23 — Phase 7: Account Editing, OTP-Protected Changes & PDF Export
+- **Objective**: Implement editable user profile details with mandatory phone OTP verification, remove placeholder Screen Lock/Biometrics setting from UI, and build a full-featured, bank-statement-styled PDF ledger export with caller-relative perspective inversion and practical filters.
+- **Phase Document**: `docs/phases/PHASE-7-PROFILE-OTP-PDF-EXPORT.md`.
+- **Files Modified / Created**:
+  - `docs/phases/PHASE-7-PROFILE-OTP-PDF-EXPORT.md`
+  - `docs/SPEC.md`
+  - `docs/API.md`
+  - `docs/Design.md`
+  - `docs/TASKS.md`
+  - `docs/PROGRESS.md`
+  - `backend/vitest.config.ts`
+  - `backend/.env`
+  - `backend/package.json`
+  - `backend/src/app.ts`
+  - `backend/src/modules/account/account.service.ts`
+  - `backend/src/modules/account/account.controller.ts`
+  - `backend/src/modules/account/account.routes.ts`
+  - `backend/src/modules/ledger/ledger-export.service.ts`
+  - `backend/src/modules/ledger/ledger.controller.ts`
+  - `backend/src/modules/ledger/ledger.routes.ts`
+  - `backend/tests/account-and-pdf.test.ts`
+  - `mobile/package.json`
+  - `mobile/src/api/account.api.ts`
+  - `mobile/src/api/ledger.api.ts`
+  - `mobile/src/components/Icons.tsx`
+  - `mobile/src/components/EditProfileModal.tsx`
+  - `mobile/src/components/ExportPdfModal.tsx`
+  - `mobile/src/features/account/AccountScreen.tsx`
+  - `mobile/App.tsx`
+- **Commands run & Exact Results**:
+  - `npm run build` in `backend/`: 0 errors.
+  - `npx vitest run tests/account-and-pdf.test.ts`: 13/13 tests passed.
+  - `npm test` in `backend/`: 65/65 tests passed across all 8 test suites (`health`, `neon`, `password`, `auth`, `loans`, `cross-account-visibility`, `accounts-netting`, `account-and-pdf`).
+  - `npx tsc --noEmit` in `mobile/`: 0 errors (strict TypeScript check passed).
+- **Status**: Phase 7 Implementation & Verification 100% Complete.
 
 ## Handoff rule
 At the start of each session, inspect `git status`, this file, `TASKS.md`, and the active phase document. Confirm actual repository state instead of trusting stale checkboxes.
+

@@ -90,5 +90,38 @@ Purpose: This is the master execution checklist. Mark tasks only after completin
 - [x] Mobile Account screen: user display name, email, phone, and password security status.
 - [x] Verification and end-to-end tests passing without regressions.
 
+## Phase 6 — Registered-User Loan Relationships and Cross-Account Visibility
+- [x] Inspect existing implementation and write Root Cause Report.
+- [x] Establish conceptual data model and participant perspective derivation rules.
+- [x] Update `docs/SPEC.md`, `docs/API.md`, and create `docs/phases/PHASE-6-CROSS-ACCOUNT-RELATIONSHIPS.md`.
+- [x] Backend: Refactor `loan.service.ts` to include counterparty loans (`where: { OR: [ { userId }, { counterpartyUserId } ] }`).
+- [x] Backend: Invert participant perspective for counterparty viewer (`type`, `counterpartyUser`, `isCreator`, `recordedByName`).
+- [x] Backend: Enable counterparty viewing (`getLoanById`) and bilateral repayment (`markLoanRepaid`).
+- [x] Backend: Refactor `summary.service.ts` to aggregate bilateral receivables/payables accurately.
+- [x] Backend: Implement `GET /api/users/:counterpartyId/relationship` endpoint and controller.
+- [x] Backend: Add comprehensive Vitest suite in `tests/cross-account-visibility.test.ts`.
+- [x] Mobile: Create `CounterpartyLedgerModal.tsx` displaying mutual balances, breakdown, and shared transactions.
+- [x] Mobile: Integrate relationship access points into `AddLoanModal`, `LoanDetailsModal`, and `AccountScreen`.
+- [x] Mobile: Display provenance badge ("Recorded by [Name]") and inverted perspective on loan cards.
+- [x] Verification: Run all backend tests and mobile TypeScript compilation.
+
+## Phase 7 — Account Editing, OTP-Protected Changes, and PDF Ledger Export
+- [x] Inspect existing implementation, verify schema, route conventions, and dependencies.
+- [x] Create `docs/phases/PHASE-7-PROFILE-OTP-PDF-EXPORT.md` and update `docs/SPEC.md`, `docs/API.md`, `docs/Design.md`.
+- [x] Backend: Install `pdfkit` and `@types/pdfkit`.
+- [x] Backend: Implement `account.service.ts` for profile fetching, OTP challenge generation, signed `updateToken`, and verification.
+- [x] Backend: Implement `account.controller.ts` and `account.routes.ts` (`GET /api/account`, `PATCH /api/account`, `POST /api/account/verify-update`).
+- [x] Backend: Implement `ledger-export.service.ts` generating bank-statement styled PDF with caller perspective, filters, and gross summary.
+- [x] Backend: Implement `ledger.routes.ts` (`POST /api/ledger/export/pdf`).
+- [x] Backend: Mount `/api/account` and `/api/ledger` in `app.ts`.
+- [x] Mobile: Remove Screen Lock / Biometrics toggle row and state from `AccountScreen.tsx`.
+- [x] Mobile: Install `expo-file-system` and `expo-sharing` (SDK 58 compatible).
+- [x] Mobile: Create `EditProfileModal.tsx` with prefilled values, read-only phone, validation, and OTP verification step.
+- [x] Mobile: Create `ExportPdfModal.tsx` with filters (Direction, Status, Date Range), progress indicator, and native share sheet integration.
+- [x] Mobile: Update `AccountScreen.tsx` with "Edit Profile" and "Export Ledger as PDF" triggers.
+- [x] Backend Tests: Add `tests/account-and-pdf.test.ts` verifying profile updates, OTP security, cross-account protection, and PDF generation.
+- [x] Verification: Run all tests (65/65 passing), verify mobile TypeScript (0 errors), and check local user experience.
+
 ## Required end-of-phase cycle
 For every phase: code → run tests → fix until all relevant tests pass → code review → improve and repeat if needed → focused commits → push after verification. Resolve merge conflicts deliberately and rerun tests. Never force-push.
+

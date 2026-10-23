@@ -1,8 +1,8 @@
-// Purpose: Client API for discovering registered MiniLedger counterparties.
-// Imported by: src/components/AddLoanModal.tsx
+// Purpose: Client API for discovering registered MiniLedger counterparties and retrieving mutual ledgers.
+// Imported by: src/components/AddLoanModal.tsx, src/components/CounterpartyLedgerModal.tsx, src/components/LoanDetailsModal.tsx
 
 import { apiRequest } from './client';
-import { PublicUserResult } from '../types/index';
+import { PublicUserResult, CounterpartyRelationship } from '../types/index';
 
 export interface SearchUsersResponse {
   data: PublicUserResult[];
@@ -24,4 +24,22 @@ export async function searchUsersApi(query: string): Promise<PublicUserResult[]>
   });
 
   return response.data;
+}
+
+/**
+ * Fetches the mutual relationship and pairwise ledger with a registered user.
+ * Requires user authentication.
+ */
+export async function fetchCounterpartyRelationshipApi(
+  counterpartyId: string
+): Promise<CounterpartyRelationship> {
+  const response = await apiRequest<CounterpartyRelationship>(
+    `/users/${encodeURIComponent(counterpartyId)}/relationship`,
+    {
+      method: 'GET',
+      requiresAuth: true,
+    }
+  );
+
+  return response;
 }

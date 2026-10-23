@@ -85,10 +85,12 @@ Use the supplied All Loans screenshots for the shared visual style.
 
 ### 7. Account / Settings
 Use the supplied Account screenshot.
-- Profile card and phone verification state.
+- Profile card with phone verification badge and interactive **Edit Profile** action.
+- Edit Profile modal with prefilled Name and Email, read-only phone number, input validation, and secure phone OTP verification before committing changes.
 - Show active loans and lent/borrowed totals separately, or label any combined count/total explicitly.
 - Currency preference INR/default.
-- Friendly Reminders, Screen Lock, receipt upload, and CSV export only if actually implemented.
+- Screen Lock / Biometrics toggle has been deliberately removed (real security is enforced via phone OTP verification, password hashing, and JWT tokens).
+- **Export Ledger as PDF**: Functional modal allowing users to configure direction, status, and date range filters, generating an authoritative PDF Personal Loan Ledger Statement downloadable and shareable via native device capabilities.
 - App name/version and Sign Out with confirmation.
 
 ## Popups and modals

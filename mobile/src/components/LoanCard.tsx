@@ -112,6 +112,11 @@ export function LoanCard({ loan, onRepay, onPress, isRepaying = false }: LoanCar
                   <Text style={styles.regBadgeText}>Reg</Text>
                 </View>
               )}
+              {loan.isCreator === false && (
+                <View style={styles.recordedByBadge}>
+                  <Text style={styles.recordedByText}>By {loan.recordedByName?.split(' ')[0] ?? 'Them'}</Text>
+                </View>
+              )}
             </View>
             <Text style={styles.dueDateText}>
               {loan.isRepaid && loan.repaidAt
@@ -269,6 +274,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     textTransform: 'uppercase',
+  },
+  recordedByBadge: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  recordedByText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#475569',
   },
   dueDateText: {
     fontSize: 12,

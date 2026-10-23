@@ -41,6 +41,8 @@ export interface Loan {
   counterpartyUserId?: string | null;
   counterpartyPhone?: string | null;
   counterpartyUser?: CounterpartyUser | null;
+  isCreator?: boolean;
+  recordedByName?: string;
   netting?: PairwiseNetting | null;
   createdAt: string;
   updatedAt?: string;
@@ -96,3 +98,18 @@ export interface PublicUserResult {
   name: string;
   maskedPhone: string;
 }
+
+// Mutual relationship and ledger details between two registered users
+export interface CounterpartyRelationship {
+  counterparty: PublicUserResult;
+  netting: PairwiseNetting;
+  metrics: {
+    totalLent: string;
+    totalBorrowed: string;
+    activeLentCount: number;
+    activeBorrowedCount: number;
+    settledCount: number;
+  };
+  loans: Loan[];
+}
+

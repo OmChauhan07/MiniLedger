@@ -38,6 +38,7 @@ interface BorrowedLoansScreenProps {
   onRefresh: () => void;
   onRepayLoan: (loanId: string) => Promise<void>;
   onOpenAddLoan: () => void;
+  onViewRelationship?: (counterpartyId: string) => void;
 }
 
 export function BorrowedLoansScreen({
@@ -47,6 +48,7 @@ export function BorrowedLoansScreen({
   onRefresh,
   onRepayLoan,
   onOpenAddLoan,
+  onViewRelationship,
 }: BorrowedLoansScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
@@ -379,6 +381,7 @@ export function BorrowedLoansScreen({
         visible={!!selectedLoan}
         onClose={() => setSelectedLoan(null)}
         onRepay={handleRepay}
+        onViewRelationship={onViewRelationship}
       />
     </SafeAreaView>
   );

@@ -31,6 +31,7 @@ interface LoanDetailsModalProps {
   visible: boolean;
   onClose: () => void;
   onRepay: (loanId: string) => Promise<void>;
+  onViewRelationship?: (counterpartyId: string) => void;
 }
 
 export function LoanDetailsModal({
@@ -38,6 +39,7 @@ export function LoanDetailsModal({
   visible,
   onClose,
   onRepay,
+  onViewRelationship,
 }: LoanDetailsModalProps) {
   const [loan, setLoan] = useState<Loan | null>(initialLoan);
   const [isRepaying, setIsRepaying] = useState(false);
@@ -165,7 +167,14 @@ export function LoanDetailsModal({
                 <View style={styles.borrowerCol}>
                   <View style={styles.nameBadgeRow}>
                     <Text style={styles.borrowerName}>{loan.friendName}</Text>
-                    <View
+                    <TouchableOpacity
+                      activeOpacity={hasRegisteredCounterparty ? 0.7 : 1}
+                      disabled={!hasRegisteredCounterparty}
+                      onPress={() => {
+                        if (hasRegisteredCounterparty && loan.counterpartyUser?.id) {
+                          onViewRelationship?.(loan.counterpartyUser.id);
+                        }
+                      }}
                       style={[
                         styles.counterpartyTag,
                         hasRegisteredCounterparty ? styles.counterpartyTagReg : styles.counterpartyTagExt,
@@ -177,9 +186,9 @@ export function LoanDetailsModal({
                           hasRegisteredCounterparty ? styles.counterpartyTagRegText : styles.counterpartyTagExtText,
                         ]}
                       >
-                        {hasRegisteredCounterparty ? 'Registered User' : 'Outside Contact'}
+                        {hasRegisteredCounterparty ? 'Registered User ↗' : 'Outside Contact'}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   </View>
                   <Text style={styles.borrowerSubtitle}>
                     {loan.counterpartyUser?.maskedPhone ||
@@ -306,6 +315,18 @@ export function LoanDetailsModal({
                 <Text style={styles.nettingAuditNote}>
                   ℹ Derived calculation. Original transaction records and due dates remain unchanged for auditability.
                 </Text>
+
+                {onViewRelationship && loan.counterpartyUser?.id && (
+                  <TouchableOpacity
+                    style={styles.openLedgerBtn}
+                    activeOpacity={0.8}
+                    onPress={() => onViewRelationship(loan.counterpartyUser!.id)}
+                  >
+                    <Text style={styles.openLedgerBtnText}>
+                      📊 View Full Mutual Ledger with {loan.friendName}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -334,6 +355,15 @@ export function LoanDetailsModal({
                 <Text style={styles.breakdownLabel}>Purpose / Note</Text>
                 <Text style={styles.breakdownValue}>
                   {loan.notes && loan.notes.trim() ? loan.notes : (isLent ? 'Friend loan' : 'Borrowed advance')}
+                </Text>
+              </View>
+
+              <View style={styles.breakdownDivider} />
+
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Recorded By</Text>
+                <Text style={styles.breakdownValue}>
+                  {loan.isCreator ? 'You' : (loan.recordedByName ?? 'Counterparty')}
                 </Text>
               </View>
 
@@ -780,6 +810,20 @@ const styles = StyleSheet.create({
     color: '#64748B',
     lineHeight: 14,
     fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  openLedgerBtn: {
+    backgroundColor: '#0F172A',
+    borderRadius: Theme.borderRadius.md,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  openLedgerBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   metricsGrid: {
     flexDirection: 'row',

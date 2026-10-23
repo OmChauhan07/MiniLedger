@@ -219,10 +219,66 @@ Success (`200 OK`):
         "name": "Priya Sharma",
         "maskedPhone": "+91 98••• ••210"
       },
+      "isCreator": true,
+      "recordedByName": "You",
       "createdAt": "2026-10-23T12:00:00.000Z"
     }
   ]
 }
+```
+*Note on Cross-Account Perspective:* If the caller is the counterparty (`counterpartyUserId === caller.id`), `type` is automatically inverted (`LENT` becomes `BORROWED`, `BORROWED` becomes `LENT`), `counterpartyUser` points to the creator, `isCreator` is `false`, and `recordedByName` indicates who created the entry.
+
+---
+
+### Get Counterparty Relationship & Ledger
+`GET /api/users/:counterpartyId/relationship`
+Protected (`requireAuth`).
+
+Path parameters:
+- `counterpartyId`: Unique ID of the registered MiniLedger user.
+
+Success (`200 OK`):
+```json
+{
+  "success": true,
+  "counterparty": {
+    "id": "usr_456",
+    "name": "Priya Sharma",
+    "maskedPhone": "+91 98••• ••210"
+  },
+  "netting": {
+    "hasCounterparty": true,
+    "lentPrincipal": "5000.00",
+    "borrowedPrincipal": "2000.00",
+    "netStatus": "RECEIVABLE",
+    "netAmount": "3000.00",
+    "explanation": "Priya Sharma owes you ₹3,000.00 net"
+  },
+  "metrics": {
+    "totalLent": "5000.00",
+    "totalBorrowed": "2000.00",
+    "activeLentCount": 1,
+    "activeBorrowedCount": 1,
+    "settledCount": 0
+  },
+  "loans": [
+    {
+      "id": "loan-1",
+      "amount": "5000.00",
+      "dueDate": "2026-11-15",
+      "type": "LENT",
+      "isRepaid": false,
+      "isCreator": true,
+      "recordedByName": "You",
+      "createdAt": "2026-10-23T12:00:00.000Z"
+    }
+  ]
+}
+```
+Error cases:
+- `400 Bad Request`: When requesting relationship with own account (`counterpartyId === caller.id`).
+- `404 Not Found`: When `counterpartyId` does not correspond to a registered user.
+
 ```
 
 ### Create Loan
@@ -333,6 +389,138 @@ All amounts are formatted as two-decimal strings.
 - `netPayable`: `max(0, outstandingBorrowed - outstandingLent)`
 - `netBalance`: Absolute difference `|outstandingLent - outstandingBorrowed|`
 - `netStatus`: `"RECEIVABLE"` if Lent > Borrowed; `"PAYABLE"` if Borrowed > Lent; `"SETTLED"` if equal.
+
+---
+
+## Account API
+
+### Get Profile
+`GET /api/account`
+Protected (`requireAuth`).
+
+Success (`200 OK`):
+```json
+{
+  "user": {
+    "id": "usr_123",
+    "phone": "+919876543210",
+    "name": "Alice Cooper",
+    "email": "alice@example.com",
+    "phoneVerifiedAt": "2026-10-23T12:00:00.000Z",
+    "createdAt": "2026-10-23T10:00:00.000Z"
+  }
+}
+```
+
+---
+
+### Request Profile Update (OTP Challenge)
+`PATCH /api/account`
+Protected (`requireAuth`).
+
+Headers:
+- `Authorization: Bearer <jwt-token>`
+- `Content-Type: application/json`
+
+Request body:
+```json
+{
+  "name": "Alice M. Cooper",
+  "email": "alice.cooper@example.com"
+}
+```
+
+Success (`200 OK` - Changes Detected):
+```json
+{
+  "requiresOtp": true,
+  "updateToken": "eyJhbGciOi...",
+  "maskedPhone": "+91 98••• ••210",
+  "message": "OTP verification required to save profile changes. A verification code was sent to your registered phone."
+}
+```
+
+Success (`200 OK` - No-Op / No Changes):
+```json
+{
+  "updated": false,
+  "message": "No profile changes detected."
+}
+```
+
+---
+
+### Verify and Apply Profile Update
+`POST /api/account/verify-update`
+Protected (`requireAuth`).
+
+Request body:
+```json
+{
+  "updateToken": "eyJhbGciOi...",
+  "otp": "123456"
+}
+```
+
+Success (`200 OK`):
+```json
+{
+  "message": "Profile updated successfully.",
+  "user": {
+    "id": "usr_123",
+    "phone": "+919876543210",
+    "name": "Alice M. Cooper",
+    "email": "alice.cooper@example.com",
+    "phoneVerifiedAt": "2026-10-23T12:00:00.000Z"
+  }
+}
+```
+
+Error responses:
+- `400 BAD_REQUEST`: Missing `updateToken` or `otp`.
+- `401 UNAUTHORIZED`: Invalid token, token not issued for current user, or invalid OTP code.
+- `429 OTP_ATTEMPTS_EXCEEDED`: Too many failed OTP attempts.
+
+---
+
+## Ledger Export API
+
+### Export Ledger as PDF
+`POST /api/ledger/export/pdf`
+Protected (`requireAuth`).
+
+Request body:
+```json
+{
+  "direction": "ALL",       // Optional: "ALL" | "LENT" | "BORROWED"
+  "status": "ALL",          // Optional: "ALL" | "OUTSTANDING" | "OVERDUE" | "REPAID"
+  "startDate": "2026-01-01",// Optional ISO date string
+  "endDate": "2026-12-31",  // Optional ISO date string
+  "counterpartyId": "...",  // Optional registered counterparty ID
+  "format": "base64"        // Optional: "base64" (returns JSON) or "binary" (streams application/pdf)
+}
+```
+
+Success (`200 OK` - JSON format):
+```json
+{
+  "success": true,
+  "filename": "MiniLedger_Statement_20261023.pdf",
+  "base64": "JVBERi0xLjQK...",
+  "recordCount": 6,
+  "summary": {
+    "totalLent": "15000.00",
+    "totalBorrowed": "5000.00",
+    "outstandingLent": "10000.00",
+    "outstandingBorrowed": "5000.00",
+    "repaidAmount": "5000.00"
+  }
+}
+```
+
+Success (`200 OK` - Binary format):
+- `Content-Type: application/pdf`
+- `Content-Disposition: attachment; filename="MiniLedger_Statement_20261023.pdf"`
 
 ---
 

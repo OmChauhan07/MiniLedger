@@ -1,5 +1,5 @@
-// Purpose: Implements business logic and ownership-scoped persistence for loan creation, listing, retrieval, repayment, and pairwise netting.
-// Imported by: src/modules/loans/loan.controller.ts, tests/loans.test.ts
+// Purpose: Implements business logic and ownership-scoped persistence for loan creation, participant-aware listing, retrieval, repayment, and bilateral pairwise netting.
+// Imported by: src/modules/loans/loan.controller.ts, src/modules/users/users.service.ts, tests/loans.test.ts, tests/accounts-netting.test.ts, tests/cross-account-visibility.test.ts
 
 import { Prisma, Loan, LoanType } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
@@ -36,6 +36,8 @@ export interface FormattedLoan {
   counterpartyUserId: string | null;
   counterpartyPhone: string | null;
   counterpartyUser?: FormattedCounterparty | null;
+  isCreator: boolean;
+  recordedByName: string;
   netting?: PairwiseNetting | null;
   createdAt: string;
   updatedAt: string;
@@ -47,7 +49,12 @@ export interface ListLoansOptions {
   search?: string;
 }
 
-type LoanWithCounterparty = Loan & {
+export type LoanWithParticipants = Loan & {
+  user: {
+    id: string;
+    name: string | null;
+    phone: string;
+  };
   counterpartyUser?: {
     id: string;
     name: string | null;
@@ -55,29 +62,67 @@ type LoanWithCounterparty = Loan & {
   } | null;
 };
 
-// Transforms a raw Prisma Loan model into the standardized API response shape with string amounts
-export function formatLoan(loan: LoanWithCounterparty, netting?: PairwiseNetting | null): FormattedLoan {
+/**
+ * Transforms a raw Prisma Loan model into participant-aware response shape relative to callerUserId.
+ * - If caller is the creator: direction is preserved (loan.type), counterparty is loan.counterpartyUser.
+ * - If caller is counterparty: direction is inverted (LENT -> BORROWED, BORROWED -> LENT), counterparty is creator (loan.user).
+ */
+export function formatLoan(
+  loan: LoanWithParticipants,
+  callerUserId: string,
+  netting?: PairwiseNetting | null
+): FormattedLoan {
+  const isCreator = loan.userId === callerUserId;
+  let perspectiveType: 'LENT' | 'BORROWED';
   let counterpartyUser: FormattedCounterparty | null = null;
-  if (loan.counterpartyUser) {
+  let friendName: string;
+  let counterpartyUserId: string | null = null;
+  let counterpartyPhone: string | null = null;
+  let recordedByName: string;
+
+  if (isCreator) {
+    perspectiveType = loan.type;
+    friendName = loan.friendName;
+    counterpartyUserId = loan.counterpartyUserId ?? null;
+    counterpartyPhone = loan.counterpartyPhone ?? null;
+    recordedByName = 'You';
+
+    if (loan.counterpartyUser) {
+      counterpartyUser = {
+        id: loan.counterpartyUser.id,
+        name: loan.counterpartyUser.name || 'MiniLedger User',
+        maskedPhone: maskPhoneNumber(loan.counterpartyUser.phone),
+      };
+    }
+  } else {
+    // Caller is the counterparty; invert direction and swap counterparty to the creator
+    perspectiveType = loan.type === 'LENT' ? 'BORROWED' : 'LENT';
+    friendName = loan.user.name || 'MiniLedger User';
+    counterpartyUserId = loan.user.id;
+    counterpartyPhone = maskPhoneNumber(loan.user.phone);
+    recordedByName = loan.user.name || 'MiniLedger User';
+
     counterpartyUser = {
-      id: loan.counterpartyUser.id,
-      name: loan.counterpartyUser.name || 'MiniLedger User',
-      maskedPhone: maskPhoneNumber(loan.counterpartyUser.phone),
+      id: loan.user.id,
+      name: loan.user.name || 'MiniLedger User',
+      maskedPhone: maskPhoneNumber(loan.user.phone),
     };
   }
 
   return {
     id: loan.id,
     userId: loan.userId,
-    friendName: loan.friendName,
+    friendName,
     amount: formatAmount(loan.amount),
     dueDate: formatDateOnly(loan.dueDate),
-    type: loan.type,
+    type: perspectiveType,
     isRepaid: loan.isRepaid,
     repaidAt: loan.repaidAt ? loan.repaidAt.toISOString() : null,
-    counterpartyUserId: loan.counterpartyUserId ?? null,
-    counterpartyPhone: loan.counterpartyPhone ?? null,
+    counterpartyUserId,
+    counterpartyPhone,
     counterpartyUser,
+    isCreator,
+    recordedByName,
     netting: netting ?? undefined,
     createdAt: loan.createdAt.toISOString(),
     updatedAt: loan.updatedAt ? loan.updatedAt.toISOString() : loan.createdAt.toISOString(),
@@ -127,6 +172,9 @@ export async function createLoan(userId: string, input: CreateLoanInput) {
       counterpartyPhone: input.counterpartyPhone || null,
     },
     include: {
+      user: {
+        select: { id: true, name: true, phone: true },
+      },
       counterpartyUser: {
         select: { id: true, name: true, phone: true },
       },
@@ -136,45 +184,75 @@ export async function createLoan(userId: string, input: CreateLoanInput) {
   return {
     success: true as const,
     status: 201,
-    data: formatLoan(loan),
+    data: formatLoan(loan, userId),
   };
 }
 
-// Retrieves all loans owned by the authenticated user with optional direction, status, and search filters
-export async function listLoans(userId: string, options?: ListLoansOptions): Promise<FormattedLoan[]> {
-  const where: Prisma.LoanWhereInput = { userId };
+// Retrieves all loans where caller is either creator OR counterparty, computing caller-relative direction and filters
+export async function listLoans(callerUserId: string, options?: ListLoansOptions): Promise<FormattedLoan[]> {
+  const conditions: Prisma.LoanWhereInput[] = [];
 
-  if (options?.type && options.type !== 'ALL') {
-    where.type = options.type as LoanType;
+  // 1. Participant and direction condition relative to caller
+  if (options?.type === 'LENT') {
+    conditions.push({
+      OR: [
+        { userId: callerUserId, type: 'LENT' },
+        { counterpartyUserId: callerUserId, type: 'BORROWED' },
+      ],
+    });
+  } else if (options?.type === 'BORROWED') {
+    conditions.push({
+      OR: [
+        { userId: callerUserId, type: 'BORROWED' },
+        { counterpartyUserId: callerUserId, type: 'LENT' },
+      ],
+    });
+  } else {
+    conditions.push({
+      OR: [
+        { userId: callerUserId },
+        { counterpartyUserId: callerUserId },
+      ],
+    });
   }
 
+  // 2. Status condition
   if (options?.status && options.status !== 'all') {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     if (options.status === 'repaid') {
-      where.isRepaid = true;
+      conditions.push({ isRepaid: true });
     } else if (options.status === 'overdue') {
-      where.isRepaid = false;
-      where.dueDate = { lt: today };
+      conditions.push({ isRepaid: false, dueDate: { lt: today } });
     } else if (options.status === 'pending') {
-      where.isRepaid = false;
-      where.dueDate = { gte: today };
+      conditions.push({ isRepaid: false, dueDate: { gte: today } });
     }
   }
 
+  // 3. Search condition
   if (options?.search && options.search.trim()) {
     const query = options.search.trim();
-    where.OR = [
-      { friendName: { contains: query, mode: 'insensitive' } },
-      { counterpartyPhone: { contains: query } },
-      { counterpartyUser: { name: { contains: query, mode: 'insensitive' } } },
-    ];
+    conditions.push({
+      OR: [
+        { friendName: { contains: query, mode: 'insensitive' } },
+        { counterpartyPhone: { contains: query } },
+        { counterpartyUser: { name: { contains: query, mode: 'insensitive' } } },
+        { counterpartyUser: { phone: { contains: query } } },
+        { user: { name: { contains: query, mode: 'insensitive' } } },
+        { user: { phone: { contains: query } } },
+      ],
+    });
   }
+
+  const where: Prisma.LoanWhereInput = { AND: conditions };
 
   const loans = await prisma.loan.findMany({
     where,
     include: {
+      user: {
+        select: { id: true, name: true, phone: true },
+      },
       counterpartyUser: {
         select: { id: true, name: true, phone: true },
       },
@@ -182,23 +260,26 @@ export async function listLoans(userId: string, options?: ListLoansOptions): Pro
     orderBy: { createdAt: 'desc' },
   });
 
-  return loans.map((loan) => formatLoan(loan));
+  return loans.map((loan) => formatLoan(loan, callerUserId));
 }
 
-// Calculates pairwise netting between caller and a registered counterparty across outstanding loans
+// Calculates bilateral pairwise netting between caller and a registered counterparty across mutual active loans
 export async function calculatePairwiseNetting(
-  userId: string,
+  callerUserId: string,
   counterpartyUserId: string,
   counterpartyUser: { id: string; name: string | null; phone: string }
 ): Promise<PairwiseNetting> {
-  // Query all active (unpaid) loans between current user and counterparty
+  // Query all active (unpaid) loans between caller and counterparty in either direction
   const activeLoans = await prisma.loan.findMany({
     where: {
-      userId,
-      counterpartyUserId,
       isRepaid: false,
+      OR: [
+        { userId: callerUserId, counterpartyUserId },
+        { userId: counterpartyUserId, counterpartyUserId: callerUserId },
+      ],
     },
     select: {
+      userId: true,
       amount: true,
       type: true,
     },
@@ -208,7 +289,12 @@ export async function calculatePairwiseNetting(
   let borrowedDecimal = new Prisma.Decimal(0);
 
   for (const item of activeLoans) {
-    if (item.type === 'BORROWED') {
+    const isCallerCreator = item.userId === callerUserId;
+    const effectiveType = isCallerCreator
+      ? item.type
+      : item.type === 'LENT' ? 'BORROWED' : 'LENT';
+
+    if (effectiveType === 'BORROWED') {
       borrowedDecimal = borrowedDecimal.add(item.amount);
     } else {
       lentDecimal = lentDecimal.add(item.amount);
@@ -260,14 +346,20 @@ export async function calculatePairwiseNetting(
   };
 }
 
-// Retrieves a single loan strictly owned by the authenticated user, computing pairwise netting if registered counterparty
-export async function getLoanById(userId: string, loanId: string) {
+// Retrieves a single loan if caller is creator OR counterparty, computing perspective and pairwise netting
+export async function getLoanById(callerUserId: string, loanId: string) {
   const loan = await prisma.loan.findFirst({
     where: {
       id: loanId,
-      userId,
+      OR: [
+        { userId: callerUserId },
+        { counterpartyUserId: callerUserId },
+      ],
     },
     include: {
+      user: {
+        select: { id: true, name: true, phone: true },
+      },
       counterpartyUser: {
         select: { id: true, name: true, phone: true },
       },
@@ -286,23 +378,35 @@ export async function getLoanById(userId: string, loanId: string) {
   }
 
   let netting: PairwiseNetting | null = null;
-  if (loan.counterpartyUserId && loan.counterpartyUser) {
-    netting = await calculatePairwiseNetting(userId, loan.counterpartyUserId, loan.counterpartyUser);
+  const otherParticipant = loan.userId === callerUserId ? loan.counterpartyUser : loan.user;
+  if (otherParticipant) {
+    netting = await calculatePairwiseNetting(callerUserId, otherParticipant.id, otherParticipant);
   }
 
   return {
     success: true as const,
     status: 200,
-    data: formatLoan(loan, netting),
+    data: formatLoan(loan, callerUserId, netting),
   };
 }
 
-// Marks an owned loan as repaid, enforcing strict ownership and rejecting duplicate repayment attempts
-export async function markLoanRepaid(userId: string, loanId: string) {
+// Marks a loan as repaid if caller is creator OR counterparty, enforcing consistent state
+export async function markLoanRepaid(callerUserId: string, loanId: string) {
   const existingLoan = await prisma.loan.findFirst({
     where: {
       id: loanId,
-      userId,
+      OR: [
+        { userId: callerUserId },
+        { counterpartyUserId: callerUserId },
+      ],
+    },
+    include: {
+      user: {
+        select: { id: true, name: true, phone: true },
+      },
+      counterpartyUser: {
+        select: { id: true, name: true, phone: true },
+      },
     },
   });
 
@@ -335,6 +439,9 @@ export async function markLoanRepaid(userId: string, loanId: string) {
       repaidAt: new Date(),
     },
     include: {
+      user: {
+        select: { id: true, name: true, phone: true },
+      },
       counterpartyUser: {
         select: { id: true, name: true, phone: true },
       },
@@ -344,6 +451,6 @@ export async function markLoanRepaid(userId: string, loanId: string) {
   return {
     success: true as const,
     status: 200,
-    data: formatLoan(updatedLoan),
+    data: formatLoan(updatedLoan, callerUserId),
   };
 }

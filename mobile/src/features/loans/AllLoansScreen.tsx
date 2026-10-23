@@ -39,6 +39,7 @@ interface AllLoansScreenProps {
   onRefresh: () => void;
   onRepayLoan: (loanId: string) => Promise<void>;
   onOpenAddLoan: () => void;
+  onViewRelationship?: (counterpartyId: string) => void;
 }
 
 export function AllLoansScreen({
@@ -48,6 +49,7 @@ export function AllLoansScreen({
   onRefresh,
   onRepayLoan,
   onOpenAddLoan,
+  onViewRelationship,
 }: AllLoansScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('ALL');
@@ -572,6 +574,7 @@ export function AllLoansScreen({
         visible={!!selectedLoan}
         onClose={() => setSelectedLoan(null)}
         onRepay={handleRepay}
+        onViewRelationship={onViewRelationship}
       />
     </SafeAreaView>
   );

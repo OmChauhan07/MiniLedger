@@ -25,6 +25,8 @@ interface AddLoanModalProps {
   onClose: () => void;
   onSubmit: (payload: CreateLoanPayload) => Promise<void>;
   defaultDirection?: LoanDirection;
+  onViewRelationship?: (counterpartyId: string) => void;
+  initialCounterparty?: { id: string; name: string } | null;
 }
 
 const PRESET_AMOUNTS = [500, 1000, 2000, 5000];
@@ -34,6 +36,8 @@ export function AddLoanModal({
   onClose,
   onSubmit,
   defaultDirection = 'LENT',
+  onViewRelationship,
+  initialCounterparty,
 }: AddLoanModalProps) {
   const [loanType, setLoanType] = useState<LoanDirection>(defaultDirection);
   const [isExternalMode, setIsExternalMode] = useState(false);
@@ -70,12 +74,21 @@ export function AddLoanModal({
       setError(null);
       setSearchQuery('');
       setSearchResults([]);
-      setSelectedUser(null);
+      if (initialCounterparty) {
+        setSelectedUser({
+          id: initialCounterparty.id,
+          name: initialCounterparty.name,
+          maskedPhone: 'Registered User',
+        });
+        setIsExternalMode(false);
+      } else {
+        setSelectedUser(null);
+        setIsExternalMode(false);
+      }
       setExternalName('');
       setExternalPhone('');
-      setIsExternalMode(false);
     }
-  }, [visible, defaultDirection]);
+  }, [visible, defaultDirection, initialCounterparty]);
 
   // Debounced search for registered users
   useEffect(() => {
@@ -305,25 +318,40 @@ export function AddLoanModal({
                 <View>
                   {selectedUser ? (
                     /* Selected Registered User Card */
-                    <View style={styles.selectedUserCard}>
-                      <View style={styles.userAvatarBadge}>
-                        <Text style={styles.userAvatarText}>{selectedUser.name[0] || 'U'}</Text>
-                      </View>
-                      <View style={styles.selectedUserInfo}>
-                        <View style={styles.selectedUserNameRow}>
-                          <Text style={styles.selectedUserName}>{selectedUser.name}</Text>
-                          <View style={styles.verifiedTag}>
-                            <Text style={styles.verifiedTagText}>Registered</Text>
-                          </View>
+                    <View>
+                      <View style={styles.selectedUserCard}>
+                        <View style={styles.userAvatarBadge}>
+                          <Text style={styles.userAvatarText}>{selectedUser.name[0] || 'U'}</Text>
                         </View>
-                        <Text style={styles.selectedUserPhone}>{selectedUser.maskedPhone}</Text>
+                        <View style={styles.selectedUserInfo}>
+                          <View style={styles.selectedUserNameRow}>
+                            <Text style={styles.selectedUserName}>{selectedUser.name}</Text>
+                            <View style={styles.verifiedTag}>
+                              <Text style={styles.verifiedTagText}>Registered</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.selectedUserPhone}>{selectedUser.maskedPhone}</Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={handleRemoveSelectedUser}
+                          style={styles.removeUserBtn}
+                        >
+                          <Text style={styles.removeUserText}>✕</Text>
+                        </TouchableOpacity>
                       </View>
-                      <TouchableOpacity
-                        onPress={handleRemoveSelectedUser}
-                        style={styles.removeUserBtn}
-                      >
-                        <Text style={styles.removeUserText}>✕</Text>
-                      </TouchableOpacity>
+
+                      {/* View Mutual Ledger CTA */}
+                      {onViewRelationship && (
+                        <TouchableOpacity
+                          style={styles.viewMutualLedgerBtn}
+                          activeOpacity={0.8}
+                          onPress={() => onViewRelationship(selectedUser.id)}
+                        >
+                          <Text style={styles.viewMutualLedgerBtnText}>
+                            📊 View Mutual Ledger & Net Balance with {selectedUser.name}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   ) : (
                     /* Search Input Box */
@@ -815,6 +843,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#475569',
+  },
+  viewMutualLedgerBtn: {
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    borderRadius: Theme.borderRadius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  viewMutualLedgerBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0284C7',
   },
   searchResultsContainer: {
     backgroundColor: '#FFFFFF',

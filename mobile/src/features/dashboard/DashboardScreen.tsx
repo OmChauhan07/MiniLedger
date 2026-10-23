@@ -36,6 +36,7 @@ interface DashboardScreenProps {
   onOpenAddLoan?: () => void;
   externalAddModalVisible?: boolean;
   onCloseExternalAddModal?: () => void;
+  onViewRelationship?: (counterpartyId: string) => void;
 }
 
 export function DashboardScreen({
@@ -48,6 +49,7 @@ export function DashboardScreen({
   onOpenAddLoan,
   externalAddModalVisible,
   onCloseExternalAddModal,
+  onViewRelationship,
 }: DashboardScreenProps) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -354,6 +356,7 @@ export function DashboardScreen({
         visible={!!selectedLoan}
         onClose={() => setSelectedLoan(null)}
         onRepay={handleRepay}
+        onViewRelationship={onViewRelationship}
       />
 
       {/* Add Loan Modal Form */}
