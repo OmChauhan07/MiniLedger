@@ -1,4 +1,4 @@
-// Purpose: Modernized bottom navigation footer bar featuring sleek royal black vector icons, animated active page indicator, and centered elevated '+' action button.
+// Purpose: Modernized bottom navigation footer bar featuring sleek royal black vector icons, smooth gliding active indicator, elevated '+' action button, and spacious gesture bar padding.
 // Imported by: App.tsx
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -23,7 +23,7 @@ interface BottomNavProps {
 
 // Minimalist Royal Black Home Icon
 function HomeIcon({ active }: { active: boolean }) {
-  const color = active ? Theme.colors.primary : Theme.colors.textMuted;
+  const color = active ? '#0F172A' : '#94A3B8';
   return (
     <View style={iconStyles.container}>
       {/* Roof Chevron */}
@@ -54,7 +54,7 @@ function HomeIcon({ active }: { active: boolean }) {
 
 // Minimalist Royal Black Ledger / Receipts Icon
 function LedgerIcon({ active }: { active: boolean }) {
-  const color = active ? Theme.colors.primary : Theme.colors.textMuted;
+  const color = active ? '#0F172A' : '#94A3B8';
   const lineBg = active ? '#FFFFFF' : color;
   return (
     <View
@@ -75,7 +75,7 @@ function LedgerIcon({ active }: { active: boolean }) {
 
 // Minimalist Royal Black User Silhouette Icon
 function UserIcon({ active }: { active: boolean }) {
-  const color = active ? Theme.colors.primary : Theme.colors.textMuted;
+  const color = active ? '#0F172A' : '#94A3B8';
   return (
     <View style={iconStyles.container}>
       {/* Head */}
@@ -139,7 +139,7 @@ const iconStyles = StyleSheet.create({
   docContainer: {
     width: 18,
     height: 22,
-    borderRadius: 3,
+    borderRadius: 3.5,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -161,7 +161,7 @@ const iconStyles = StyleSheet.create({
   userHead: {
     width: 9,
     height: 9,
-    borderRadius: 5,
+    borderRadius: 4.5,
     borderWidth: 2,
     marginBottom: 2,
   },
@@ -175,7 +175,7 @@ const iconStyles = StyleSheet.create({
   },
 });
 
-const INDICATOR_WIDTH = 34;
+const INDICATOR_WIDTH = 32;
 
 export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNavProps) {
   // Measurements for sliding indicator
@@ -203,8 +203,8 @@ export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNav
       Animated.parallel([
         Animated.spring(indicatorAnim, {
           toValue: targetX,
-          friction: 7,
-          tension: 70,
+          friction: 8,
+          tension: 75,
           useNativeDriver: true,
         }),
         Animated.timing(indicatorOpacity, {
@@ -225,8 +225,8 @@ export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNav
       }),
       Animated.spring(scaleVal, {
         toValue: 1,
-        friction: 5,
-        tension: 100,
+        friction: 6,
+        tension: 110,
         useNativeDriver: true,
       }),
     ]).start();
@@ -252,12 +252,11 @@ export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNav
           style={styles.tabItem}
           onLayout={(e) => handleTabLayout('dashboard', e)}
           onPress={() => animatePress(dashboardScale, () => onSelectTab('dashboard'))}
-          activeOpacity={0.8}
+          activeOpacity={0.75}
         >
           <Animated.View
             style={[
               styles.tabInner,
-              currentTab === 'dashboard' && styles.tabInnerActive,
               { transform: [{ scale: dashboardScale }] },
             ]}
           >
@@ -270,6 +269,7 @@ export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNav
             >
               Dashboard
             </Text>
+            {currentTab === 'dashboard' && <View style={styles.activeDotPill} />}
           </Animated.View>
         </TouchableOpacity>
 
@@ -278,12 +278,11 @@ export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNav
           style={styles.tabItem}
           onLayout={(e) => handleTabLayout('all-loans', e)}
           onPress={() => animatePress(allLoansScale, () => onSelectTab('all-loans'))}
-          activeOpacity={0.8}
+          activeOpacity={0.75}
         >
           <Animated.View
             style={[
               styles.tabInner,
-              currentTab === 'all-loans' && styles.tabInnerActive,
               { transform: [{ scale: allLoansScale }] },
             ]}
           >
@@ -296,10 +295,11 @@ export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNav
             >
               All Loans
             </Text>
+            {currentTab === 'all-loans' && <View style={styles.activeDotPill} />}
           </Animated.View>
         </TouchableOpacity>
 
-        {/* Center Elevated '+' FAB Button in Royal Black */}
+        {/* Center Elevated '+' FAB Button in Royal Obsidian Black */}
         <View style={styles.fabWrapper}>
           <TouchableOpacity
             style={styles.fabButton}
@@ -315,12 +315,11 @@ export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNav
           style={styles.tabItem}
           onLayout={(e) => handleTabLayout('account', e)}
           onPress={() => animatePress(accountScale, () => onSelectTab('account'))}
-          activeOpacity={0.8}
+          activeOpacity={0.75}
         >
           <Animated.View
             style={[
               styles.tabInner,
-              currentTab === 'account' && styles.tabInnerActive,
               { transform: [{ scale: accountScale }] },
             ]}
           >
@@ -333,6 +332,7 @@ export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNav
             >
               Account
             </Text>
+            {currentTab === 'account' && <View style={styles.activeDotPill} />}
           </Animated.View>
         </TouchableOpacity>
       </View>
@@ -345,35 +345,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: Theme.colors.borderSubtle,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 18,
     position: 'relative',
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: -3 },
+        shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.06,
-        shadowRadius: 8,
+        shadowRadius: 10,
       },
       android: {
-        elevation: 8,
+        elevation: 10,
       },
     }),
   },
   glidingIndicator: {
     position: 'absolute',
-    top: 0,
+    top: -1,
     left: 0,
     width: INDICATOR_WIDTH,
     height: 3,
-    backgroundColor: Theme.colors.primary,
-    borderBottomLeftRadius: 2,
-    borderBottomRightRadius: 2,
+    backgroundColor: '#0F172A',
+    borderRadius: 1.5,
     zIndex: 10,
   },
   navBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 58,
+    height: 56,
     paddingHorizontal: 8,
   },
   tabItem: {
@@ -385,44 +384,46 @@ const styles = StyleSheet.create({
   tabInner: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: Theme.borderRadius.lg,
-    gap: 2,
-  },
-  tabInnerActive: {
-    backgroundColor: '#F1F5F9', // Soft subtle royal black background pill
+    paddingVertical: 2,
+    gap: 3,
   },
   tabLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: Theme.colors.textMuted,
+    fontWeight: '500',
+    color: '#94A3B8',
     letterSpacing: -0.1,
   },
   tabLabelActive: {
-    color: Theme.colors.primary,
-    fontWeight: '800',
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  activeDotPill: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#0F172A',
+    marginTop: 1,
   },
   fabWrapper: {
     width: 62,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -22,
+    marginTop: -20,
   },
   fabButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: Theme.colors.primary, // Obsidian Royal Black
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#0F172A', // Obsidian Royal Black
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
+    borderWidth: 3.5,
     borderColor: '#FFFFFF',
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.35,
+        shadowOpacity: 0.3,
         shadowRadius: 8,
       },
       android: {
@@ -431,10 +432,10 @@ const styles = StyleSheet.create({
     }),
   },
   fabPlusText: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '600',
     color: '#FFFFFF',
     marginTop: -2,
-    lineHeight: 30,
+    lineHeight: 28,
   },
 });
