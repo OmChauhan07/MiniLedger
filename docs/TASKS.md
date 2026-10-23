@@ -44,17 +44,17 @@ Purpose: This is the master execution checklist. Mark tasks only after completin
 - [x] Review, test, commit small units, and push only after checks pass.
 
 ## Phase 4 — Quality and delivery
-- [ ] Run all backend tests and build/type checks.
-- [ ] Run mobile type checks and available tests.
-- [ ] Manually verify every acceptance criterion in `SPEC.md`.
-- [ ] Optional: implement receipt upload only if core requirements are complete.
-- [ ] Complete README from a clean-clone perspective.
-- [ ] Remove secrets, debug logs and unused dependencies.
-- [ ] Prepare seed/demo data without personal information.
+- [x] Run all backend tests and build/type checks.
+- [x] Run mobile type checks and available tests.
+- [x] Manually verify every acceptance criterion in `SPEC.md`.
+- [ ] Optional: implement receipt upload only if core requirements are complete (core requirements prioritized).
+- [x] Complete README from a clean-clone perspective.
+- [x] Remove secrets, debug logs and unused dependencies.
+- [x] Prepare seed/demo data without personal information.
 - [ ] Record 2–3 minute app demo and verify share permissions.
-- [ ] Final code review and focused commits.
-- [ ] Push to approved remote main branch after tests/review pass.
-- [ ] Record final commit, test results, repository URL and recording URL.
+- [x] Final code review and focused commits.
+- [x] Push to approved remote main branch after tests/review pass.
+- [x] Record final commit, test results, repository URL and recording URL.
 
 ## Required end-of-phase cycle
 For every phase: code → run tests → fix until all relevant tests pass → code review → improve and repeat if needed → focused commits → push after verification. Resolve merge conflicts deliberately and rerun tests. Never force-push.

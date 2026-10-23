@@ -93,14 +93,14 @@ One individual who wants to keep track of personal loans made to friends.
 - Receipt upload until the required features, tests and README are complete.
 
 ## 9. Acceptance criteria
-- [ ] A new phone number can complete the mock OTP flow.
-- [ ] OTP appears only in server logs and is not exposed in the API response.
-- [ ] Authenticated user can create and list a loan.
-- [ ] User can mark an owned loan as repaid.
-- [ ] Dashboard values update correctly after create and repay.
-- [ ] Overdue entries are highlighted and repaid entries are not highlighted as overdue.
-- [ ] Unauthenticated access is rejected.
-- [ ] A user cannot access another user's loan by guessing its ID.
-- [ ] Backend tests and production build pass.
-- [ ] App runs on Android.
-- [ ] README and 2–3 minute demo are ready.
+- [x] A new phone number can complete the mock OTP flow.
+- [x] OTP appears only in server logs and is not exposed in the API response.
+- [x] Authenticated user can create and list a loan.
+- [x] User can mark an owned loan as repaid.
+- [x] Dashboard values update correctly after create and repay.
+- [x] Overdue entries are highlighted and repaid entries are not highlighted as overdue.
+- [x] Unauthenticated access is rejected.
+- [x] A user cannot access another user's loan by guessing its ID.
+- [x] Backend tests and production build pass.
+- [x] App runs on Android.
+- [x] README and 2–3 minute demo are ready.
