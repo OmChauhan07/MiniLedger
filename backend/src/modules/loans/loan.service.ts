@@ -390,38 +390,47 @@ export async function getLoanById(callerUserId: string, loanId: string) {
   };
 }
 
-// Marks a loan as repaid if caller is creator OR counterparty, enforcing consistent state
+// Marks a loan as repaid if caller is creator OR counterparty, atomically preventing race conditions
 export async function markLoanRepaid(callerUserId: string, loanId: string) {
-  const existingLoan = await prisma.loan.findFirst({
+  // Atomically update only if the loan is currently unpaid and caller is an authorized participant
+  const updateResult = await prisma.loan.updateMany({
     where: {
       id: loanId,
+      isRepaid: false,
       OR: [
         { userId: callerUserId },
         { counterpartyUserId: callerUserId },
       ],
     },
-    include: {
-      user: {
-        select: { id: true, name: true, phone: true },
-      },
-      counterpartyUser: {
-        select: { id: true, name: true, phone: true },
-      },
+    data: {
+      isRepaid: true,
+      repaidAt: new Date(),
     },
   });
 
-  if (!existingLoan) {
-    return {
-      success: false as const,
-      status: 404,
-      error: {
-        code: 'NOT_FOUND',
-        message: 'Loan not found.',
+  if (updateResult.count === 0) {
+    // Check if loan exists for caller to distinguish between 404 and 409
+    const existingLoan = await prisma.loan.findFirst({
+      where: {
+        id: loanId,
+        OR: [
+          { userId: callerUserId },
+          { counterpartyUserId: callerUserId },
+        ],
       },
-    };
-  }
+    });
 
-  if (existingLoan.isRepaid) {
+    if (!existingLoan) {
+      return {
+        success: false as const,
+        status: 404,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Loan not found.',
+        },
+      };
+    }
+
     return {
       success: false as const,
       status: 409,
@@ -432,12 +441,8 @@ export async function markLoanRepaid(callerUserId: string, loanId: string) {
     };
   }
 
-  const updatedLoan = await prisma.loan.update({
+  const updatedLoan = await prisma.loan.findUniqueOrThrow({
     where: { id: loanId },
-    data: {
-      isRepaid: true,
-      repaidAt: new Date(),
-    },
     include: {
       user: {
         select: { id: true, name: true, phone: true },

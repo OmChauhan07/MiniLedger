@@ -51,6 +51,8 @@ model Loan {
   @@index([userId, isRepaid])
   @@index([userId, type, isRepaid])
   @@index([userId, counterpartyUserId])
+  @@index([counterpartyUserId])
+  @@index([counterpartyUserId, isRepaid])
 }
 
 model OtpChallenge {
@@ -63,4 +65,5 @@ model OtpChallenge {
   createdAt    DateTime  @default(now())
 
   @@index([phone, expiresAt])
+  @@index([phone, createdAt])
 }

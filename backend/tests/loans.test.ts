@@ -254,6 +254,37 @@ describe('Loan and Summary API Integration Tests', () => {
     expect(secondRepayRes.body.error.code).toBe('LOAN_ALREADY_REPAID');
   });
 
+  // Test concurrent repayment requests cannot mark the same loan as repaid more than once
+  it('PATCH /api/loans/:id/repay prevents concurrent requests from marking the same loan as repaid more than once', async () => {
+    const createRes = await request(app)
+      .post('/api/loans')
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({ friendName: 'Concurrent Friend', amount: '1200.00', dueDate: '2026-11-20', type: 'BORROWED' });
+
+    const loanId = createRes.body.id;
+
+    // Send multiple concurrent repayment requests
+    const promises = [
+      request(app).patch(`/api/loans/${loanId}/repay`).set('Authorization', `Bearer ${userAToken}`),
+      request(app).patch(`/api/loans/${loanId}/repay`).set('Authorization', `Bearer ${userAToken}`),
+      request(app).patch(`/api/loans/${loanId}/repay`).set('Authorization', `Bearer ${userAToken}`),
+    ];
+
+    const responses = await Promise.all(promises);
+    const successResponses = responses.filter((r) => r.status === 200);
+    const conflictResponses = responses.filter((r) => r.status === 409);
+
+    // Exactly one concurrent request must succeed
+    expect(successResponses.length).toBe(1);
+    expect(conflictResponses.length).toBe(2);
+    expect(conflictResponses[0].body.error.code).toBe('LOAN_ALREADY_REPAID');
+    expect(conflictResponses[1].body.error.code).toBe('LOAN_ALREADY_REPAID');
+
+    // Confirm DB loan is marked repaid
+    const dbLoan = await prisma.loan.findUnique({ where: { id: loanId } });
+    expect(dbLoan?.isRepaid).toBe(true);
+  });
+
   // Test cross-user repayment protection
   it('PATCH /api/loans/:id/repay returns 404 when User B attempts to repay User A loan', async () => {
     const createRes = await request(app)
