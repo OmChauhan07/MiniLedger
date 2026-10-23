@@ -104,3 +104,13 @@ One individual who wants to keep track of personal loans made to friends.
 - [x] Backend tests and production build pass.
 - [x] App runs on Android.
 - [x] README and 2–3 minute demo are ready.
+
+## 10. Account & Settlement Netting Enhancements (Phase 5)
+- **Signup Flow:** Phone verification via OTP followed by profile setup (Name, optional Email, Password). Account is marked phone-verified upon creation.
+- **Login Flow:** Registered users log in with Phone + Password directly without requiring OTP on every session.
+- **Legacy Compatibility:** Existing users without passwords can complete a one-time OTP verification to establish their password.
+- **Registered Counterparty Search:** When recording a loan, users can search registered users by name or phone. Results display display name and masked phone number (`+91 98*** **210`).
+- **External Contacts:** Users can explicitly choose "Add someone outside MiniLedger" to enter an external name and optional phone number. External contacts are never automatically linked to registered accounts.
+- **Derived Balance Netting:** For any two registered users, the system computes the pairwise net balance ($|L - B|$) while strictly preserving all original underlying transactions, due dates, and repayment records.
+- **Overdue Invariant:** Gross overdue receivables and gross overdue payables are tracked separately. Due dates are never synthesized or netted.
+

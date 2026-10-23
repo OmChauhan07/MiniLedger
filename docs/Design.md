@@ -29,47 +29,49 @@ MiniLedger is an Android-first personal ledger for tracking money lent to other 
 
 ## Screens
 
-### 1. Login
-- Brand and concise purpose statement.
-- Phone field with +91 default country code.
-- Continue button, validation/loading state, brief privacy note.
-- No password field for phone + OTP authentication.
+### 1. Login (Phone + Password)
+- Dedicated login screen with Brand and purpose statement.
+- Mobile number field with +91 default country code.
+- Password field with show/hide toggle.
+- Primary "Login" button with validation and loading state.
+- Secondary "Create Account" link directing to Signup flow.
+- Clear error banner handling `INVALID_CREDENTIALS` and `PASSWORD_NOT_SET` (redirecting legacy accounts to OTP password setup).
 
-### 2. OTP Verification
-- Masked phone number, six-digit numeric OTP, Verify button, resend cooldown.
-- Handle invalid/expired OTP, rate limits, and network errors.
-- Mock OTP is logged by the backend only; never show it in the app or API response.
+### 2. Signup Flow
+- Step A: Enter mobile number with +91 country code and press "Get Verification Code".
+- Step B: Enter 6-digit OTP with expiry timer and resend action.
+- Step C: Complete Profile screen (Full Name - required; Email - optional; Password & Confirm Password - required).
+- Submit creates verified account and transitions directly to Dashboard.
 
 ### 3. Dashboard
 Use the supplied Dashboard screenshot as the visual reference.
-- Greeting without unnecessarily exposing the full phone number.
-- Show distinct summary figures for **Lent Outstanding**, **Borrowed Outstanding**, **Overdue Receivable**, and **Overdue Payable**.
-- Also show Total Lent and Total Repaid as clearly labelled metrics if space allows; do not combine lent and borrowed amounts into one unlabeled “capital” total.
+- Greeting displaying user's name (fallback to masked phone).
+- Show distinct summary figures for **Lent Outstanding**, **Borrowed Outstanding**, **Net Position** (Receivable / Payable / Settled), **Overdue Receivable**, and **Overdue Payable**.
 - Quick actions: Add Loan and All Loans.
-- Recent Loans can contain both directions; each card must have a clear Lent/Borrowed indicator and correct “They owe you” / “You owe them” wording.
+- Recent Loans can contain both directions; each card displays clear direction badge, counterparty identity badge (Registered vs External), and correct wording.
 - Include loading, empty, and API-error states.
 
 ### 4. Add Loan
-Can be a dedicated screen or modal/bottom sheet.
-- First field/choice: direction selector with **I've Lent** and **I've Borrowed**.
-- Person name (required).
-- Amount in INR (required, positive number).
-- Due date (required, valid date).
-- Optional note only if supported by the existing backend schema/API.
-- Optional receipt only if file upload is implemented end-to-end.
-- Form labels adapt to direction where useful: e.g. “Friend's name” or “Lender's name”.
-- Validate fields inline, prevent duplicate submissions, and show success only after API success.
-- Return to the relevant screen and refresh summaries.
+Dedicated modal / bottom sheet.
+- First choice: Direction selector (**I've Lent** vs **I've Borrowed**).
+- Counterparty selection:
+  - Search field to discover registered MiniLedger users by name or phone.
+  - Interactive search result list showing Name and masked phone number (+91 98••• ••210) with a "Registered" badge.
+  - Option to **Add someone outside MiniLedger** (prompts for external friend's name and optional phone).
+  - Clear visual indicator of chosen counterparty with an option to change/remove selection.
+- Amount in INR (required, positive number, decimal-safe).
+- Due date (required, valid date with +7d, +14d, +30d quick chips).
+- Inline validation, prevention of duplicate submissions, and Royal Obsidian design system styling.
 
-### 5. Loan Details
+### 5. Loan Details & Netting
 Use the supplied Loan Details screenshot as the layout reference.
 - Person name/initials, direction badge, amount, due date, and current status.
-- Lent: label amount “Lent Amount” and state “They owe you”.
-- Borrowed: label amount “Borrowed Amount” and state “You owe them”.
-- Show creation date, repayment/paid date, note, or reference ID only when actual data exists.
-- Unpaid Lent action: “Mark as Repaid” or “Mark as Received”.
-- Unpaid Borrowed action: “Mark as Paid” or “Mark as Repaid”.
-- Confirm the action and use direction-specific copy.
+- Counterparty badge: "Registered User" or "External Contact".
+- **Pairwise Net Balance Card** (when loan has a registered counterparty):
+  - Shows total Lent to that user and total Borrowed from that user.
+  - Displays computed net balance (e.g., "Priya owes you ₹3,000.00 net" or "You owe Priya ₹1,000.00 net" or "Settled / No net balance").
+  - Explanatory note: "Original records remain unchanged for auditability."
+- Direction-aware repayment action: "Mark as Repaid" (Lent) or "Mark as Paid" (Borrowed) with confirmation dialog.
 
 ### 6. All Loans
 Use the supplied All Loans screenshots for the shared visual style.

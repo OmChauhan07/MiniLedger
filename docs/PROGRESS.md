@@ -174,7 +174,17 @@ Purpose: Preserve verified project state between agent sessions. Update this fil
   - `npx prisma db push`: Applied safely; verified 9 existing rows retained `type = 'LENT'`.
 - **Commit hashes**:
   - `7879a78`: `feat(backend): add LENT and BORROWED loan direction support, query filters, and separate summary metrics`
-- **Remote/push status**: Pushing remaining mobile & docs changes.
+- **Remote/push status**: Pushed to `origin/main`.
+
+### Phase 6 — Account, Counterparties & Netting (In Progress)
+- **Phase/tasks worked on**: Architecture planning, documentation updates (`SPEC.md`, `SCHEMA.md`, `API.md`, `TASKS.md`, `Design.md`, `docs/phases/PHASE-5-ACCOUNTS-COUNTERPARTIES-NETTING.md`), database non-destructive migration design, and API contract specification.
+- **Key Decisions & Ambiguities Resolved**:
+  - *Password Hashing*: `crypto.scrypt` with per-user 16-byte cryptographically secure salt, stored in `salt:hash` hex format; verified via `crypto.timingSafeEqual`.
+  - *Email*: Optional during registration to prevent drop-off.
+  - *Legacy Users*: Users with `passwordHash = null` are prompted via `PASSWORD_NOT_SET` code to run a one-time OTP verification to set their password.
+  - *Counterparty Discovery*: `GET /api/users/search?q=...` returns only public safe fields (`id`, `name`, `maskedPhone`). Caller is excluded from search results.
+  - *Non-Destructive Netting*: Purely derived view without mutating or auto-repaying individual transaction records.
+- **Status**: Planning and documentation complete; ready for implementation and testing.
 
 ## Handoff rule
 At the start of each session, inspect `git status`, this file, `TASKS.md`, and the active phase document. Confirm actual repository state instead of trusting stale checkboxes.

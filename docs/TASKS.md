@@ -71,5 +71,24 @@ Purpose: This is the master execution checklist. Mark tasks only after completin
 - [x] Run backend test suite (25/25 passed) and mobile TypeScript check (`npx tsc --noEmit` passed with 0 errors).
 - [x] Commit and push changes incrementally to remote repository.
 
+## Phase 6 — Account, Counterparties & Netting
+- [ ] Non-destructive Prisma migration: add `name`, `email`, `passwordHash`, `phoneVerifiedAt`, `updatedAt` to `User`; add `counterpartyUserId`, `counterpartyPhone`, `updatedAt` to `Loan`.
+- [ ] Safe password hashing and timing-safe verification utility (`crypto.scrypt`).
+- [ ] New user signup flow: `POST /api/auth/register/send-otp`, `verify-otp` (returning short-lived `signupToken`), and `complete` (name, email, password).
+- [ ] Existing user login: `POST /api/auth/login` (phone + password) with rate limiting and timing attack protection.
+- [ ] Legacy passwordless user upgrade flow (`PASSWORD_NOT_SET` -> OTP -> set password).
+- [ ] Registered user search: `GET /api/users/search?q=...` returning only public safe fields (`id`, `name`, `maskedPhone`).
+- [ ] Counterparty linking on loan creation (`POST /api/loans`) with external fallback (name/optional phone).
+- [ ] Pairwise netting calculation between registered counterparties on `GET /api/loans/:id` (`RECEIVABLE`, `PAYABLE`, `SETTLED`).
+- [ ] Global net receivable/payable calculations on `GET /api/summary`.
+- [ ] Backend test suite updates covering auth, login, search, counterparty linking, and pairwise netting.
+- [ ] Mobile Login screen: phone + password, validation, error handling, link to Signup.
+- [ ] Mobile Signup screen: phone entry -> OTP verification -> profile setup (name, email, password) -> dashboard.
+- [ ] Mobile Add Loan: registered user search dropdown with masked phone, and "Add someone outside MiniLedger" option.
+- [ ] Mobile Loan Details: counterparty identity badges and derived net balance card with explanation.
+- [ ] Mobile Dashboard: updated summary cards with net receivable/payable metrics.
+- [ ] Mobile Account screen: user display name, email, phone, and password security status.
+- [ ] Verification and end-to-end tests passing without regressions.
+
 ## Required end-of-phase cycle
 For every phase: code → run tests → fix until all relevant tests pass → code review → improve and repeat if needed → focused commits → push after verification. Resolve merge conflicts deliberately and rerun tests. Never force-push.
