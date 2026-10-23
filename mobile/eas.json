@@ -13,7 +13,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://miniledger-api-14ch.onrender.com"
+        "EXPO_PUBLIC_API_URL": "http://10.246.135.16:4000/api"
       }
     },
     "production": {
@@ -21,7 +21,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://miniledger-api-14ch.onrender.com"
+        "EXPO_PUBLIC_API_URL": "http://10.246.135.16:4000/api"
       }
     }
   },

@@ -2,48 +2,43 @@
 
 MiniLedger is a personal lending ledger mobile application built for Android that helps individuals track money lent and borrowed, monitor due dates, record repayments, discover registered counterparties, settle mutual balances with bilateral pairwise netting, export statement PDFs, and manage profile avatars.
 
-This repository contains both the **Express + TypeScript REST API backend** (powered by Neon PostgreSQL and Neon S3-Compatible Object Storage with Prisma ORM) and the **Expo React Native TypeScript mobile client** (with Expo SecureStore and EAS build support).
+This repository contains both the **Express + TypeScript REST API backend** (powered by PostgreSQL/Neon and S3-Compatible Object Storage with Prisma ORM) and the **Expo React Native TypeScript mobile client** (with Expo SecureStore).
 
 ---
 
-## Current Project Status: Production Ready & Verified
+## Features & Highlights
 
-- [x] **Core Lending & Ledger Engine**:
+- **Core Lending & Ledger Engine**:
   - Full support for both **LENT** and **BORROWED** loan types.
   - Decimal-safe financial arithmetic for portfolio aggregates: `totalLent`, `totalBorrowed`, `totalRepaid`, `outstandingLent`, `outstandingBorrowed`, `overdueReceivable`, and `overduePayable`.
   - Atomic repayment marking with concurrency control: prevents double repayments using isolated database updates.
   - Query parameter validation: strictly validates status and direction filters, rejecting malformed input with HTTP 400.
-- [x] **Authentication & Identity Security**:
+- **Authentication & Identity Security**:
   - Phone normalization to E.164 and Indian 10-digit mobile number parsing.
   - Cryptographically secure 6-digit OTP generation with SHA-256 hash storage, 5-minute expiry, 60-second cooldown, and 3-attempt lockout.
-  - Password-based authentication for verified users; secure legacy OTP setup flow for existing accounts.
+  - Mock OTPs logged prominently to the backend terminal in local development; never returned in API payloads.
+  - Password-based authentication for registered users; secure legacy OTP setup flow for existing accounts.
   - Timing-safe verification using `crypto.timingSafeEqual` to prevent timing attacks.
   - JWT token issuance upon verification and Bearer authentication middleware.
-- [x] **Registered Counterparties & Bilateral Pairwise Netting**:
+- **Registered Counterparties & Bilateral Pairwise Netting**:
   - Counterparty discovery via `GET /api/users/search?q=...` with privacy-preserving phone number masking.
   - Bilateral mutual ledgers: loans linked between registered users automatically invert perspective (Lender sees Lent; Borrower sees Borrowed).
   - Pairwise netting calculation via `GET /api/users/:id/relationship` computing net receivable, net payable, or settled status.
-- [x] **Profile Editing & Atomic Verification**:
+- **Profile Editing & Atomic Verification**:
   - Profile updates require phone OTP verification before committing changes.
   - Atomic verification and update token consumption to prevent token reuse or tampering.
-- [x] **Server-Generated PDF Statements**:
+- **Server-Generated PDF Statements**:
   - Authoritative PDF ledger generation via `POST /api/ledger/export/pdf`.
   - Filter by direction (All, Lent, Borrowed), status (Outstanding, Overdue, Repaid), date range, or counterparty.
   - Base64 JSON and direct binary PDF delivery with native device sharing (`expo-sharing`).
-- [x] **Profile Picture Avatar Upload & Neon Object Storage**:
+- **Profile Picture Avatar Upload & S3 Object Storage**:
   - Native gallery image picker (`expo-image-picker`) with 1:1 square crop preview, replacement, and removal.
-  - Neon S3-compatible object storage via AWS SDK v3 with private bucket architecture.
+  - S3-compatible object storage via AWS SDK v3 with private bucket architecture.
   - Cryptographic magic byte detection supporting JPEG (`0xFFD8FF`), PNG (`0x89504E47`), and WebP (`RIFF...WEBP`).
   - 5MB file-size limit enforced with HTTP 413 handling.
   - Short-lived presigned URLs (1 hour) and authenticated streaming endpoints (`/api/account/avatar` and `/api/users/:id/avatar`).
-  - Safe replacement logic: existing avatar is never deleted before the new image upload succeeds.
-- [x] **Cloud Deployment & Production Mobile Architecture**:
-  - **Render Backend**: Deployed at `https://miniledger-api-14ch.onrender.com` with active health check at `/api/health`.
-  - **Mobile Production Config**: Driven by `EXPO_PUBLIC_API_URL="https://miniledger-api-14ch.onrender.com"`.
-  - **Canonical URL Resolution**: `buildApiUrl` guarantees single `/api` prefixes with 0 duplicate `/api/api/` occurrences.
-  - **EAS Build Configuration**: `eas.json` configured for Android preview APK (`android.buildType: "apk"`).
-- [x] **Comprehensive Test Coverage**:
-  - **85/85 automated backend integration tests passing** with Vitest against live Neon PostgreSQL and Neon Object Storage.
+- **Comprehensive Test Coverage**:
+  - **85/85 automated backend integration tests passing** with Vitest against live PostgreSQL and Object Storage.
   - Strict TypeScript check (`tsc --noEmit`) passing with 0 errors across backend and mobile.
 
 ---
@@ -69,7 +64,7 @@ MiniLedger/
 │   │   │   └── ledger/       # PDF ledger export endpoint
 │   │   ├── routes/           # Health check routes (/api/health and /health)
 │   │   ├── app.ts            # Express setup and router registration
-│   │   └── index.ts          # Server entry point
+│   │   └── index.ts          # Server entry point (listens on 0.0.0.0:4000)
 │   ├── tests/                # 9 integration test suites (85 tests passing)
 │   ├── .env.example          # Backend environment variable template
 │   └── package.json          # Dependencies and scripts
@@ -87,7 +82,7 @@ MiniLedger/
 │   │   └── theme/            # Theme tokens, colors, and shadows
 │   ├── App.tsx               # Root session coordinator and tab navigation
 │   ├── app.json              # Expo application configuration (com.credsetu.miniledger)
-│   ├── eas.json              # EAS Build profiles (preview APK & production)
+│   ├── eas.json              # EAS Build configuration
 │   ├── .env.example          # Mobile environment template (EXPO_PUBLIC_API_URL)
 │   └── package.json          # Dependencies and scripts
 └── README.md                 # Project documentation and quickstart
@@ -95,9 +90,116 @@ MiniLedger/
 
 ---
 
-## Production API Endpoints
+## How to Run Locally
 
-### Base URL: `https://miniledger-api-14ch.onrender.com`
+### Prerequisites
+- **Node.js**: v20+ LTS
+- **npm**: v10+
+- **PostgreSQL**: PostgreSQL 15+ database (local instance or cloud database such as Neon)
+- **Device for testing**:
+  - Android phone with the [Expo Go](https://play.google.com/store/apps/details?id=host.exp.exponent) app installed (connected to the same Wi-Fi), OR
+  - Android Studio Virtual Device (Emulator).
+
+---
+
+### Step 1: Find Your Computer's LAN IP Address
+
+To allow your physical phone on Wi-Fi to reach your backend server, identify your computer's local IPv4 address:
+
+- **Windows**: Open Command Prompt / PowerShell and run:
+  ```powershell
+  ipconfig
+  ```
+  Look for your active Wi-Fi adapter (e.g. `Wireless LAN adapter Wi-Fi`) and copy the **IPv4 Address** (e.g. `10.246.135.16` or `192.168.1.x`).
+- **macOS / Linux**: Run `ifconfig` or `ip a` and locate your Wi-Fi interface address (`en0` / `wlan0`).
+
+---
+
+### Step 2: Start the Backend Server
+
+Open a terminal and navigate to the `backend/` directory:
+
+```bash
+cd backend
+
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env and ensure DATABASE_URL, JWT_SECRET, and Object Storage credentials are set
+
+# 3. Synchronize database schema and generate Prisma Client
+npx prisma db push
+
+# 4. Start the development server (listens on 0.0.0.0:4000)
+npm run dev
+```
+
+*Expected output:*
+```text
+MiniLedger API running on port 4000 [development]
+```
+
+Verify backend health in your browser or curl:
+```bash
+curl http://localhost:4000/api/health
+# Response: {"status":"ok","service":"MiniLedger API"}
+```
+
+---
+
+### Step 3: Configure and Start the Mobile App
+
+Open a **second terminal** and navigate to the `mobile/` directory:
+
+```bash
+cd mobile
+
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment
+cp .env.example .env
+```
+
+Open `mobile/.env` and set `EXPO_PUBLIC_API_URL` to your computer's LAN IP address on port `4000`:
+```env
+EXPO_PUBLIC_API_URL="http://<YOUR_LAN_IP>:4000/api"
+```
+*(Example: `EXPO_PUBLIC_API_URL="http://10.246.135.16:4000/api"`)*
+
+> **Note for Emulators**: If testing on an Android Emulator instead of a physical phone, you can alternatively use `http://10.0.2.2:4000/api`.
+
+Now start the Expo development server with a **cleared cache** (`-c`) so it loads the updated environment variable:
+
+```bash
+npx expo start -c
+```
+
+---
+
+### Step 4: Test on Your Phone (Expo Go)
+
+1. Make sure your phone is connected to the **same Wi-Fi network** as your computer.
+2. Open the **Expo Go** app on your Android phone and scan the QR code displayed in the terminal.
+3. In the app:
+   - Enter your phone number (e.g., `9876543210`) and tap **Continue with OTP**.
+   - Check your **backend server terminal** where the 6-digit mock OTP is prominently logged:
+     ```text
+     ==================================================
+       🔑 [MOCK OTP] Phone: +919876543210 | Code: 492104
+       Valid for 5 minutes (attempt 1/3)
+     ==================================================
+     ```
+   - Enter the 6-digit code in the app to complete authentication.
+   - Explore the app: create loans, upload a profile avatar, filter statements, and export a ledger PDF!
+
+---
+
+## Local API Endpoints
+
+### Base URL: `http://localhost:4000/api` (or `http://<YOUR_LAN_IP>:4000/api`)
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
@@ -125,74 +227,20 @@ MiniLedger/
 
 ---
 
-## Mobile Environment Configuration
-
-The mobile app reads `EXPO_PUBLIC_API_URL` to connect to the backend.
-
-### Production Environment (`mobile/.env`)
-```bash
-EXPO_PUBLIC_API_URL="https://miniledger-api-14ch.onrender.com"
-```
-
-### Local Development (`mobile/.env.local` or defaults)
-If `EXPO_PUBLIC_API_URL` is omitted in development mode (`__DEV__`), the app automatically resolves:
-- **Android Emulator**: `http://10.0.2.2:4000/api`
-- **iOS Simulator / Web**: `http://localhost:4000/api`
-- **Physical Device**: Set `EXPO_PUBLIC_DEV_HOST="192.168.x.x"` for local Wi-Fi testing.
-
-All endpoint requests use `buildApiUrl` in `mobile/src/api/client.ts`, which normalizes any base URL to prevent missing prefixes or duplicate `/api/api` paths.
-
----
-
-## Android APK Build (Expo EAS)
-
-The project includes an `eas.json` build configuration with an installable APK profile:
+## Running Verification Tests
 
 ```bash
-cd mobile
+# Run backend integration tests (85 tests across 9 test files)
+cd backend
+npm test
 
-# 1. Login to Expo EAS (if not already authenticated)
-npx eas-cli login
+# Run mobile strict TypeScript typecheck
+cd ../mobile
+npm run typecheck
 
-# 2. Build the Android Preview APK using the production Render API
-npx eas-cli build --platform android --profile preview
-```
-
-The `preview` profile builds a standalone `.apk` package (`android.buildType: "apk"`) pre-configured with `EXPO_PUBLIC_API_URL="https://miniledger-api-14ch.onrender.com"`.
-
----
-
-## Verification & Test Results
-
-```text
-Backend Integration Test Suite (Vitest v5.0.5):
- ✓ tests/loans.test.ts (8 tests)
- ✓ tests/accounts-netting.test.ts (15 tests)
- ✓ tests/cross-account-visibility.test.ts (8 tests)
- ✓ tests/auth.test.ts (12 tests)
- ✓ tests/account-and-pdf.test.ts (15 tests)
- ✓ tests/avatar.test.ts (14 tests)
- ✓ tests/neon.test.ts (3 tests)
- ✓ tests/password.test.ts (4 tests)
- ✓ tests/health.test.ts (3 tests)
-
- Test Files  9 passed (9)
-      Tests  85 passed (85)
-   Duration  306.32s
-
-Mobile Strict Typecheck:
- > mobile@1.0.0 typecheck
- > tsc --noEmit
- Clean (0 errors)
-
-Backend TypeScript Build:
- > miniledger-backend@0.1.0 build
- > tsc -p tsconfig.build.json
- Clean (0 errors)
-
-Production Render Health Check:
- curl https://miniledger-api-14ch.onrender.com/api/health
- HTTP 200 OK: {"status":"ok","service":"MiniLedger API"}
+# Verify backend production build
+cd ../backend
+npm run build
 ```
 
 ---
