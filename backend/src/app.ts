@@ -19,7 +19,8 @@ app.use(cors());
 // Parse incoming requests with JSON payloads
 app.use(express.json());
 
-// Mount API routes under the /api prefix
+// Mount health routes at root (e.g., Render /health) and under /api/health
+app.use(healthRouter);
 app.use('/api', healthRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/loans', loanRouter);

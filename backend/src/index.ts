@@ -4,8 +4,8 @@
 import { app } from './app.js';
 import { config } from './config/env.js';
 
-// Start listening for incoming HTTP connections
-const server = app.listen(config.PORT, () => {
+// Start listening for incoming HTTP connections on 0.0.0.0
+const server = app.listen(config.PORT, '0.0.0.0', () => {
   console.log(`MiniLedger API running on port ${config.PORT} [${config.NODE_ENV}]`);
 });
 
