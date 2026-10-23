@@ -1,4 +1,4 @@
-// Purpose: Main dashboard screen displaying the financial summary, loan list, and actions for adding and settling loans.
+// Purpose: Modernized dashboard screen featuring Bento metric cards, quick ledger actions, recent loans, and toast feedback matching MiniLedger Stitch specifications.
 // Imported by: App.tsx
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -11,6 +11,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   SafeAreaView,
+  useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { User, Loan, Summary, CreateLoanPayload } from '../../types/index.js';
@@ -19,26 +20,58 @@ import { fetchLoansApi, markLoanRepaidApi, createLoanApi } from '../../api/loan.
 import { SummaryCards } from '../../components/SummaryCards.js';
 import { LoanCard } from '../../components/LoanCard.js';
 import { AddLoanModal } from '../../components/AddLoanModal.js';
-import { ErrorBanner } from '../../components/ErrorBanner.js';
+import { LoanDetailsModal } from '../../components/LoanDetailsModal.js';
+import { Toast } from '../../components/Toast.js';
+import { Theme } from '../../theme/index.js';
+import { formatCurrencyCompact, getInitials } from '../../utils/format.js';
 
 interface DashboardScreenProps {
   user: User;
   onLogout: () => void;
+  onNavigateToAllLoans?: () => void;
+  onNavigateToAccount?: () => void;
+  onOpenAddLoan?: () => void;
+  externalAddModalVisible?: boolean;
+  onCloseExternalAddModal?: () => void;
 }
 
-// Renders the main ledger dashboard with live aggregates, loan cards, and modal triggers
-export function DashboardScreen({ user, onLogout }: DashboardScreenProps) {
+export function DashboardScreen({
+  user,
+  onLogout,
+  onNavigateToAllLoans,
+  onNavigateToAccount,
+  onOpenAddLoan,
+  externalAddModalVisible,
+  onCloseExternalAddModal,
+}: DashboardScreenProps) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [repayingLoanId, setRepayingLoanId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [localAddModalVisible, setLocalAddModalVisible] = useState(false);
+  const [emptyPreviewMode, setEmptyPreviewMode] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
 
-  // Loads latest lending statistics and loan entries concurrently from the API
+  // Toast state
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastVisible, setToastVisible] = useState(false);
+
+  const { width } = useWindowDimensions();
+
+  const isAddModalVisible =
+    externalAddModalVisible !== undefined ? externalAddModalVisible : localAddModalVisible;
+  const setAddModalVisible = (visible: boolean) => {
+    if (visible && onOpenAddLoan) {
+      onOpenAddLoan();
+    } else if (!visible && onCloseExternalAddModal) {
+      onCloseExternalAddModal();
+    } else {
+      setLocalAddModalVisible(visible);
+    }
+  };
+
   const loadDashboardData = useCallback(async () => {
-    setErrorMessage(null);
     try {
       const [summaryData, loansData] = await Promise.all([
         fetchSummaryApi(),
@@ -47,144 +80,248 @@ export function DashboardScreen({ user, onLogout }: DashboardScreenProps) {
       setSummary(summaryData);
       setLoans(loansData);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Unable to fetch ledger data. Pull down to refresh.');
+      setToastMessage(err.message || 'Unable to fetch ledger data. Pull to refresh.');
+      setToastVisible(true);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   }, []);
 
-  // Initializes dashboard state on screen mount
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // Handles pull-to-refresh gestures
   const handleRefresh = () => {
     setIsRefreshing(true);
     loadDashboardData();
   };
 
-  // Marks an outstanding or overdue loan as repaid and updates local ledger metrics
   const handleRepay = async (loanId: string) => {
+    const targetLoan = loans.find((l) => l.id === loanId);
     setRepayingLoanId(loanId);
-    setErrorMessage(null);
     try {
       const updatedLoan = await markLoanRepaidApi(loanId);
-      // Immediately reflect the status change in the local loan list
-      setLoans((prev) =>
-        prev.map((item) => (item.id === loanId ? updatedLoan : item))
-      );
-      // Refresh summary metrics to update outstanding and repaid balances
+      setLoans((prev) => prev.map((item) => (item.id === loanId ? updatedLoan : item)));
+
       const freshSummary = await fetchSummaryApi();
       setSummary(freshSummary);
+
+      const debtorName = targetLoan ? targetLoan.friendName : 'Loan';
+      const amountStr = targetLoan ? formatCurrencyCompact(targetLoan.amount) : '';
+      setToastMessage(`${amountStr} from ${debtorName} marked repaid!`);
+      setToastVisible(true);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to mark loan as repaid.');
+      setToastMessage(err.message || 'Failed to mark loan as repaid.');
+      setToastVisible(true);
     } finally {
       setRepayingLoanId(null);
     }
   };
 
-  // Submits a new loan to the API and refreshes dashboard statistics and loans
   const handleCreateLoan = async (payload: CreateLoanPayload) => {
     await createLoanApi(payload);
     await loadDashboardData();
+    setToastMessage(`Loan of ${formatCurrencyCompact(payload.amount)} saved!`);
+    setToastVisible(true);
   };
+
+  const userInitial = user.phone ? user.phone.slice(-2) : 'RM';
+  const overdueCount = loans.filter((l) => {
+    if (l.isRepaid) return false;
+    const today = new Date().toISOString().slice(0, 10);
+    return l.dueDate < today;
+  }).length;
+
+  const displayLoans = emptyPreviewMode ? [] : loans;
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
 
-      {/* Top Application Bar */}
-      <View style={styles.topBar}>
-        <View>
-          <Text style={styles.appTitle}>MiniLedger</Text>
-          <Text style={styles.userPhone}>{user.phone}</Text>
+      {/* Floating Micro Toast */}
+      <Toast
+        visible={toastVisible}
+        message={toastMessage || ''}
+        type="success"
+        onDismiss={() => setToastVisible(false)}
+      />
+
+      {/* Sticky Top Header */}
+      <View style={styles.headerBar}>
+        <View style={styles.brandRow}>
+          <View style={styles.logoBadgeSmall}>
+            <Text style={styles.logoBadgeText}>₹</Text>
+          </View>
+          <View style={styles.brandTitleCol}>
+            <Text style={styles.brandKicker}>MiniLedger</Text>
+            <Text style={styles.brandPageTitle}>Dashboard</Text>
+          </View>
         </View>
-        <TouchableOpacity onPress={onLogout} style={styles.logoutButton} activeOpacity={0.7}>
-          <Text style={styles.logoutButtonText}>Sign Out</Text>
+
+        <TouchableOpacity
+          onPress={onNavigateToAccount}
+          style={styles.profileAvatarButton}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.profileAvatarText}>{userInitial}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Main Content Area */}
+      {/* Main Body */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0284C7" />
-          <Text style={styles.loadingText}>Loading your ledger...</Text>
+          <ActivityIndicator size="large" color={Theme.colors.primary} />
+          <Text style={styles.loadingText}>Syncing ledger overview...</Text>
         </View>
       ) : (
         <FlatList
-          data={loans}
+          data={displayLoans}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              colors={['#0284C7']}
+              colors={[Theme.colors.primary]}
             />
           }
           ListHeaderComponent={
-            <View>
-              <ErrorBanner
-                message={errorMessage}
-                onDismiss={() => setErrorMessage(null)}
-                onRetry={loadDashboardData}
+            <View style={styles.listHeaderWrapper}>
+              {/* Greeting & Preview Toggle Banner */}
+              <View style={styles.greetingRow}>
+                <View style={styles.greetingCol}>
+                  <View style={styles.greetingTitleRow}>
+                    <Text style={styles.greetingName}>
+                      Hi, {user.phone ? user.phone.slice(-4) : 'User'}
+                    </Text>
+                    <Text style={styles.waveEmoji}>👋</Text>
+                  </View>
+                  <Text style={styles.greetingSubtitle}>Here is your financial overview today</Text>
+                </View>
+
+                {/* Preview Empty Mode Toggle (from Stitch specs) */}
+                <TouchableOpacity
+                  onPress={() => setEmptyPreviewMode((prev) => !prev)}
+                  style={styles.previewToggleBtn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.previewToggleIcon}>👁</Text>
+                  <Text style={styles.previewToggleText}>
+                    {emptyPreviewMode ? 'Active View' : 'Demo Empty'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 2x2 Bento Metric Grid */}
+              <SummaryCards
+                summary={summary}
+                totalLoansCount={loans.length}
+                overdueLoansCount={overdueCount}
               />
 
-              {/* Summary Cards Grid */}
-              <SummaryCards summary={summary} />
-
-              {/* Section Header */}
-              <View style={styles.sectionHeader}>
-                <View>
-                  <Text style={styles.sectionTitle}>Loans</Text>
-                  <Text style={styles.sectionSubtitle}>
-                    {loans.length} {loans.length === 1 ? 'entry' : 'entries'} recorded
-                  </Text>
+              {/* Quick Action Banner */}
+              <View style={styles.quickActionCard}>
+                <View style={styles.quickActionHeader}>
+                  <View style={styles.quickActionIconCircle}>
+                    <Text style={styles.quickActionGlyph}>⚡</Text>
+                  </View>
+                  <View style={styles.quickActionTextCol}>
+                    <Text style={styles.quickActionTitle}>Quick Ledger Actions</Text>
+                    <Text style={styles.quickActionSubtitle}>
+                      Record transfers or inspect ledger logs
+                    </Text>
+                  </View>
                 </View>
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={() => setIsAddModalVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.addButtonText}>+ Add Loan</Text>
-                </TouchableOpacity>
+
+                <View style={styles.quickActionButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.addLoanQuickBtn}
+                    onPress={() => setAddModalVisible(true)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.addLoanQuickIcon}>+</Text>
+                    <Text style={styles.addLoanQuickText}>Add Loan</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.filterQuickBtn}
+                    onPress={onNavigateToAllLoans}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.filterQuickIcon}>⚙</Text>
+                    <Text style={styles.filterQuickText}>Filter Ledger</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Recent Loans Section Header */}
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionTitleRow}>
+                  <Text style={styles.sectionHeading}>Recent Loans</Text>
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>{displayLoans.length} total</Text>
+                  </View>
+                </View>
+
+                {loans.length > 0 && onNavigateToAllLoans && (
+                  <TouchableOpacity
+                    onPress={onNavigateToAllLoans}
+                    style={styles.seeAllBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.seeAllText}>See all ({loans.length})</Text>
+                    <Text style={styles.seeAllChevron}>➔</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           }
           renderItem={({ item }) => (
             <LoanCard
               loan={item}
+              onPress={(l) => setSelectedLoan(l)}
               onRepay={handleRepay}
               isRepaying={repayingLoanId === item.id}
             />
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconBox}>
-                <Text style={styles.emptyIcon}>🤝</Text>
+              <View style={styles.emptyIconCircle}>
+                <Text style={styles.emptyIconText}>🪙</Text>
               </View>
-              <Text style={styles.emptyTitle}>No loans recorded yet</Text>
+              <Text style={styles.emptyTitle}>All settled up!</Text>
               <Text style={styles.emptySubtitle}>
-                Tap the button below to add your first loan and start tracking friend balances.
+                Zero active loans on your ledger. Kickstart a clean slate or record your first debtor.
               </Text>
               <TouchableOpacity
-                style={styles.emptyActionButton}
-                onPress={() => setIsAddModalVisible(true)}
-                activeOpacity={0.8}
+                style={styles.emptyAddBtn}
+                onPress={() => {
+                  setEmptyPreviewMode(false);
+                  setAddModalVisible(true);
+                }}
+                activeOpacity={0.85}
               >
-                <Text style={styles.emptyActionText}>+ Record First Loan</Text>
+                <Text style={styles.emptyAddBtnText}>+ Add First Loan</Text>
               </TouchableOpacity>
             </View>
           }
         />
       )}
 
+      {/* Loan Details Modal */}
+      <LoanDetailsModal
+        loan={selectedLoan}
+        visible={!!selectedLoan}
+        onClose={() => setSelectedLoan(null)}
+        onRepay={handleRepay}
+      />
+
       {/* Add Loan Modal Form */}
       <AddLoanModal
         visible={isAddModalVisible}
-        onClose={() => setIsAddModalVisible(false)}
+        onClose={() => setAddModalVisible(false)}
         onSubmit={handleCreateLoan}
       />
     </SafeAreaView>
@@ -194,39 +331,67 @@ export function DashboardScreen({ user, onLogout }: DashboardScreenProps) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
-  topBar: {
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: Theme.colors.borderSubtle,
+    ...Theme.shadows.sm,
   },
-  appTitle: {
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoBadgeSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: Theme.borderRadius.md,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: Theme.colors.borderSubtle,
+  },
+  logoBadgeText: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.4,
+    color: Theme.colors.primary,
   },
-  userPhone: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
+  brandTitleCol: {
+    justifyContent: 'center',
   },
-  logoutButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#F1F5F9',
+  brandKicker: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
-  logoutButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
+  brandPageTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: Theme.colors.textPrimary,
+  },
+  profileAvatarButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Theme.shadows.sm,
+  },
+  profileAvatarText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,
@@ -237,91 +402,237 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#64748B',
+    color: Theme.colors.textSecondary,
+    fontWeight: '500',
   },
   listContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 40,
   },
-  sectionHeader: {
+  listHeaderWrapper: {
+    marginBottom: 6,
+  },
+  greetingRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  greetingCol: {
+    flex: 1,
+  },
+  greetingTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  greetingName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Theme.colors.textPrimary,
+  },
+  waveEmoji: {
+    fontSize: 18,
+  },
+  greetingSubtitle: {
+    fontSize: 13,
+    color: Theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  previewToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Theme.borderRadius.full,
+    gap: 4,
+  },
+  previewToggleIcon: {
+    fontSize: 12,
+  },
+  previewToggleText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Theme.colors.textSecondary,
+  },
+  quickActionCard: {
+    backgroundColor: Theme.colors.surfaceContainerLow,
+    borderRadius: Theme.borderRadius.xl,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Theme.colors.borderSubtle,
+  },
+  quickActionHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-    marginTop: 4,
   },
-  sectionTitle: {
+  quickActionIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Theme.colors.primaryContainer,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  quickActionGlyph: {
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  quickActionTextCol: {
+    flex: 1,
+  },
+  quickActionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Theme.colors.textPrimary,
+  },
+  quickActionSubtitle: {
+    fontSize: 12,
+    color: Theme.colors.textSecondary,
+  },
+  quickActionButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  addLoanQuickBtn: {
+    flex: 1,
+    height: 44,
+    backgroundColor: Theme.colors.primary,
+    borderRadius: Theme.borderRadius.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    ...Theme.shadows.sm,
+  },
+  addLoanQuickIcon: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  addButton: {
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  addButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
+  },
+  addLoanQuickText: {
+    fontSize: 14,
     fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  filterQuickBtn: {
+    flex: 1,
+    height: 44,
+    backgroundColor: Theme.colors.surfaceCard,
+    borderRadius: Theme.borderRadius.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.borderSubtle,
+    gap: 6,
+    ...Theme.shadows.sm,
+  },
+  filterQuickIcon: {
+    fontSize: 14,
+    color: Theme.colors.textSecondary,
+  },
+  filterQuickText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Theme.colors.textPrimary,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionHeading: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: Theme.colors.textPrimary,
+  },
+  countBadge: {
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Theme.borderRadius.full,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Theme.colors.textSecondary,
+  },
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Theme.colors.primary,
+  },
+  seeAllChevron: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Theme.colors.primary,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: 42,
     paddingHorizontal: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: Theme.colors.surfaceCard,
+    borderRadius: Theme.borderRadius.xl,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderStyle: 'dashed',
-    marginTop: 8,
+    borderColor: Theme.colors.borderSubtle,
+    marginTop: 6,
+    ...Theme.shadows.sm,
   },
-  emptyIconBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#F1F5F9',
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  emptyIcon: {
-    fontSize: 24,
+  emptyIconText: {
+    fontSize: 30,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
-    color: '#0F172A',
+    color: Theme.colors.textPrimary,
     marginBottom: 6,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: Theme.colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 16,
+    lineHeight: 19,
+    maxWidth: 260,
+    marginBottom: 18,
   },
-  emptyActionButton: {
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+  emptyAddBtn: {
+    backgroundColor: Theme.colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: Theme.borderRadius.lg,
+    ...Theme.shadows.sm,
   },
-  emptyActionText: {
+  emptyAddBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
 });

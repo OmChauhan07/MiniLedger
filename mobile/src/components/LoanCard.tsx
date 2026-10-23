@@ -1,189 +1,321 @@
-// Purpose: Renders a single loan card displaying friend name, amount, due date, status badge, and repayment action.
-// Imported by: src/features/dashboard/DashboardScreen.tsx
+// Purpose: Renders a modernized loan card matching MiniLedger Stitch specifications.
+// Imported by: src/features/dashboard/DashboardScreen.tsx, src/features/loans/AllLoansScreen.tsx
 
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Loan } from '../types/index.js';
-import { formatCurrency, formatDisplayDate, checkIsOverdue } from '../utils/format.js';
+import {
+  formatCurrencyCompact,
+  formatDisplayDate,
+  checkIsOverdue,
+  getRelativeDueLabel,
+  getInitials,
+} from '../utils/format.js';
+import { Theme } from '../theme/index.js';
 
 interface LoanCardProps {
   loan: Loan;
   onRepay: (loanId: string) => void;
+  onPress?: (loan: Loan) => void;
   isRepaying?: boolean;
 }
 
-// Renders an individual loan entry card with visual overdue indicators and mark-repaid button
-export function LoanCard({ loan, onRepay, isRepaying = false }: LoanCardProps) {
-  const isOverdueLoan = checkIsOverdue(loan.dueDate, loan.isRepaid);
+export function LoanCard({ loan, onRepay, onPress, isRepaying = false }: LoanCardProps) {
+  const isOverdue = checkIsOverdue(loan.dueDate, loan.isRepaid);
+  const initials = getInitials(loan.friendName);
+  const relativeBadge = getRelativeDueLabel(loan.dueDate, loan.isRepaid);
+
+  // Avatar styles depending on loan status
+  const avatarBg = loan.isRepaid
+    ? Theme.colors.statusRepaidTint
+    : isOverdue
+    ? Theme.colors.statusOverdueTint
+    : Theme.colors.surfaceContainerHigh;
+
+  const avatarTextColor = loan.isRepaid
+    ? Theme.colors.statusRepaid
+    : isOverdue
+    ? Theme.colors.statusOverdue
+    : Theme.colors.textPrimary;
+
+  // Amount text color
+  const amountColor = loan.isRepaid
+    ? Theme.colors.statusRepaid
+    : isOverdue
+    ? Theme.colors.statusOverdue
+    : Theme.colors.textPrimary;
 
   return (
-    <View style={[styles.card, isOverdueLoan && styles.overdueCard]}>
-      <View style={styles.headerRow}>
-        <View style={styles.friendInfo}>
-          <Text style={styles.friendName}>{loan.friendName}</Text>
-          <Text style={[styles.dueDate, isOverdueLoan && styles.overdueDateText]}>
-            Due: {formatDisplayDate(loan.dueDate)}
-          </Text>
+    <TouchableOpacity
+      activeOpacity={onPress ? 0.9 : 1}
+      onPress={() => onPress?.(loan)}
+      style={[
+        styles.cardContainer,
+        loan.isRepaid && styles.cardRepaid,
+        isOverdue && styles.cardOverdue,
+      ]}
+    >
+      {/* Top Header Row */}
+      <View style={styles.topRow}>
+        {/* Borrower Avatar & Details */}
+        <View style={styles.borrowerSection}>
+          <View style={[styles.avatarCircle, { backgroundColor: avatarBg }]}>
+            <Text style={[styles.avatarText, { color: avatarTextColor }]}>{initials}</Text>
+          </View>
+          <View style={styles.borrowerTextCol}>
+            <Text style={styles.borrowerName} numberOfLines={1}>
+              {loan.friendName}
+            </Text>
+            <Text style={styles.dueDateText}>
+              {loan.isRepaid && loan.repaidAt
+                ? `Paid on ${formatDisplayDate(loan.repaidAt.slice(0, 10))}`
+                : `Due ${formatDisplayDate(loan.dueDate)}`}
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.amountInfo}>
-          <Text style={[styles.amount, isOverdueLoan && styles.overdueAmountText]}>
-            {formatCurrency(loan.amount)}
+        {/* Amount & Status Badge */}
+        <View style={styles.amountSection}>
+          <Text style={[styles.amountText, { color: amountColor }]}>
+            {formatCurrencyCompact(loan.amount)}
           </Text>
-          {/* Status Badge */}
+
+          {/* Pill Badge */}
           {loan.isRepaid ? (
-            <View style={[styles.badge, styles.repaidBadge]}>
-              <Text style={styles.repaidBadgeText}>✓ Repaid</Text>
+            <View style={styles.badgeRepaid}>
+              <Text style={styles.badgeRepaidIcon}>✓</Text>
+              <Text style={styles.badgeRepaidText}>Repaid</Text>
             </View>
-          ) : isOverdueLoan ? (
-            <View style={[styles.badge, styles.overdueBadge]}>
-              <Text style={styles.overdueBadgeText}>⚠ Overdue</Text>
+          ) : isOverdue ? (
+            <View style={styles.badgeOverdue}>
+              <Text style={styles.badgeOverdueIcon}>⚠</Text>
+              <Text style={styles.badgeOverdueText}>{relativeBadge.text}</Text>
             </View>
           ) : (
-            <View style={[styles.badge, styles.pendingBadge]}>
-              <Text style={styles.pendingBadgeText}>Pending</Text>
+            <View style={styles.badgePending}>
+              <Text style={styles.badgePendingIcon}>⏱</Text>
+              <Text style={styles.badgePendingText}>{relativeBadge.text}</Text>
             </View>
           )}
         </View>
       </View>
 
-      {/* Action Footer for Unpaid Loans */}
-      {!loan.isRepaid && (
-        <View style={styles.actionRow}>
+      {/* Bottom Context Strip */}
+      <View style={styles.bottomStrip}>
+        <Text style={styles.noteText} numberOfLines={1}>
+          {loan.notes && loan.notes.trim() ? loan.notes : 'Friend loan • UPI'}
+        </Text>
+
+        {!loan.isRepaid ? (
           <TouchableOpacity
             style={[styles.repayButton, isRepaying && styles.repayButtonDisabled]}
             onPress={() => onRepay(loan.id)}
             disabled={isRepaying}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
             {isRepaying ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={Theme.colors.statusRepaid} />
             ) : (
-              <Text style={styles.repayButtonText}>Mark Repaid</Text>
+              <View style={styles.repayContent}>
+                <Text style={styles.repayIcon}>✓</Text>
+                <Text style={styles.repayText}>Mark Repaid</Text>
+              </View>
             )}
           </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Repayment Timestamp for Settled Loans */}
-      {loan.isRepaid && loan.repaidAt && (
-        <Text style={styles.repaidAtText}>
-          Settled on {formatDisplayDate(loan.repaidAt.slice(0, 10))}
-        </Text>
-      )}
-    </View>
+        ) : (
+          <View style={styles.settledBadge}>
+            <Text style={styles.settledIcon}>✓</Text>
+            <Text style={styles.settledText}>Settled</Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+  cardContainer: {
+    backgroundColor: Theme.colors.surfaceCard,
+    borderRadius: Theme.borderRadius.xl,
+    padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: Theme.colors.borderSubtle,
+    ...Theme.shadows.card,
   },
-  overdueCard: {
-    borderColor: '#FECDD3',
-    backgroundColor: '#FFF5F5',
+  cardRepaid: {
+    opacity: 0.94,
   },
-  headerRow: {
+  cardOverdue: {
+    borderColor: Theme.colors.statusOverdueBorder,
+  },
+  topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  friendInfo: {
+  borrowerSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
-    marginRight: 12,
+    marginRight: 10,
   },
-  friendName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 4,
-  },
-  dueDate: {
-    fontSize: 13,
-    color: '#64748B',
-  },
-  overdueDateText: {
-    color: '#E11D48',
-    fontWeight: '600',
-  },
-  amountInfo: {
-    alignItems: 'flex-end',
-  },
-  amount: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 4,
-  },
-  overdueAmountText: {
-    color: '#BE123C',
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  repaidBadge: {
-    backgroundColor: '#DCFCE7',
-  },
-  repaidBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#15803D',
-  },
-  overdueBadge: {
-    backgroundColor: '#FFE4E6',
-  },
-  overdueBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#BE123C',
-  },
-  pendingBadge: {
-    backgroundColor: '#F1F5F9',
-  },
-  pendingBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  actionRow: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    alignItems: 'flex-end',
-  },
-  repayButton: {
-    backgroundColor: '#16A34A',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 110,
+  avatarCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 10,
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  borrowerTextCol: {
+    flex: 1,
+  },
+  borrowerName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Theme.colors.textPrimary,
+  },
+  dueDateText: {
+    fontSize: 12,
+    color: Theme.colors.textMuted,
+    marginTop: 2,
+  },
+  amountSection: {
+    alignItems: 'flex-end',
+  },
+  amountText: {
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  badgeRepaid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.statusRepaidTint,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Theme.borderRadius.full,
+    marginTop: 3,
+    gap: 3,
+  },
+  badgeRepaidIcon: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: Theme.colors.statusRepaid,
+  },
+  badgeRepaidText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Theme.colors.statusRepaid,
+  },
+  badgeOverdue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.statusOverdueTint,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Theme.borderRadius.full,
+    marginTop: 3,
+    gap: 3,
+  },
+  badgeOverdueIcon: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Theme.colors.statusOverdue,
+  },
+  badgeOverdueText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Theme.colors.statusOverdue,
+  },
+  badgePending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.statusPendingTint,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Theme.borderRadius.full,
+    marginTop: 3,
+    gap: 3,
+  },
+  badgePendingIcon: {
+    fontSize: 10,
+    color: Theme.colors.statusPending,
+  },
+  badgePendingText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Theme.colors.statusPending,
+  },
+  bottomStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Theme.colors.background,
+    marginHorizontal: -14,
+    marginBottom: -14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderBottomLeftRadius: Theme.borderRadius.xl,
+    borderBottomRightRadius: Theme.borderRadius.xl,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.borderLight,
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 12,
+    color: Theme.colors.textMuted,
+    fontStyle: 'italic',
+    marginRight: 10,
+  },
+  repayButton: {
+    backgroundColor: Theme.colors.statusRepaidTint,
+    borderWidth: 1,
+    borderColor: Theme.colors.statusRepaidBorder,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Theme.borderRadius.md,
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   repayButtonDisabled: {
     opacity: 0.6,
   },
-  repayButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
+  repayContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  repaidAtText: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 8,
+  repayIcon: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Theme.colors.statusRepaid,
+  },
+  repayText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Theme.colors.statusRepaid,
+  },
+  settledBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  settledIcon: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Theme.colors.statusRepaid,
+  },
+  settledText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Theme.colors.statusRepaid,
   },
 });

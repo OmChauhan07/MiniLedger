@@ -16,6 +16,7 @@ export interface Loan {
   isRepaid: boolean;
   repaidAt: string | null;
   createdAt: string;
+  notes?: string;
 }
 
 // Financial summary aggregates returned by GET /api/summary
@@ -37,4 +38,5 @@ export interface CreateLoanPayload {
   friendName: string;
   amount: string;
   dueDate: string;
+  notes?: string;
 }
