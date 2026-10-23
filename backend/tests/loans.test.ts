@@ -205,6 +205,20 @@ describe('Loan and Summary API Integration Tests', () => {
     expect(searchRes.status).toBe(200);
     expect(searchRes.body.data.length).toBe(1);
     expect(searchRes.body.data[0].friendName).toBe('Kavita LENT');
+
+    // Rejects invalid type filter with 400 VALIDATION_ERROR
+    const invalidTypeRes = await request(app)
+      .get('/api/loans?type=NOT_A_TYPE')
+      .set('Authorization', `Bearer ${userAToken}`);
+    expect(invalidTypeRes.status).toBe(400);
+    expect(invalidTypeRes.body.error.code).toBe('VALIDATION_ERROR');
+
+    // Rejects invalid status filter with 400 VALIDATION_ERROR
+    const invalidStatusRes = await request(app)
+      .get('/api/loans?status=NOT_A_STATUS')
+      .set('Authorization', `Bearer ${userAToken}`);
+    expect(invalidStatusRes.status).toBe(400);
+    expect(invalidStatusRes.body.error.code).toBe('VALIDATION_ERROR');
   });
 
   // Test marking borrowed loan as repaid

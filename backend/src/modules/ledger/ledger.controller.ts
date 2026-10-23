@@ -8,8 +8,8 @@ import { generateLedgerPdf } from './ledger-export.service.js';
 const exportPdfSchema = z.object({
   direction: z.enum(['ALL', 'LENT', 'BORROWED']).optional(),
   status: z.enum(['ALL', 'OUTSTANDING', 'OVERDUE', 'REPAID']).optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}(T.*)?$/, 'startDate must be formatted as YYYY-MM-DD').optional(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}(T.*)?$/, 'endDate must be formatted as YYYY-MM-DD').optional(),
   counterpartyId: z.string().optional(),
   format: z.enum(['base64', 'binary']).optional(),
 });

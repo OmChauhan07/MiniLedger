@@ -42,9 +42,17 @@ export async function listLoansHandler(req: Request, res: Response) {
   }
 
   const queryResult = listLoansQuerySchema.safeParse(req.query);
-  const options = queryResult.success ? queryResult.data : undefined;
+  if (!queryResult.success) {
+    const firstIssue = queryResult.error.issues[0];
+    return res.status(400).json({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: firstIssue?.message || 'Invalid loan filter parameters.',
+      },
+    });
+  }
 
-  const loans = await listLoans(userId, options);
+  const loans = await listLoans(userId, queryResult.data);
   return res.status(200).json({ data: loans });
 }
 
