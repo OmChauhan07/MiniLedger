@@ -1,9 +1,10 @@
 // Purpose: Integration test suite for phone OTP authentication, rate limits, one-time consumption, and JWT protection.
-// Imported by: none (test file executed by test runner)
+// Imported by: vitest test runner (no source importers)
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import request from 'supertest';
-import express from 'express';
+import express, { Request, Response } from 'express';
+import '../src/types/express.d.ts';
 import { app } from '../src/app.js';
 import { prisma } from '../src/lib/prisma.js';
 import { hashOtp } from '../src/lib/crypto.js';
@@ -11,13 +12,22 @@ import { requireAuth } from '../src/middleware/auth.middleware.js';
 
 describe('Auth Integration Tests', () => {
   const testPhone = '+919876543210';
+  const secondaryPhone = '+919999988888';
   const testOtp = '123456';
 
   beforeEach(async () => {
     // Clean up test data for deterministic test runs
-    await prisma.otpChallenge.deleteMany({ where: { phone: testPhone } });
-    await prisma.loan.deleteMany({ where: { user: { phone: testPhone } } });
-    await prisma.user.deleteMany({ where: { phone: testPhone } });
+    await prisma.otpChallenge.deleteMany({ where: { phone: { in: [testPhone, secondaryPhone] } } });
+    await prisma.loan.deleteMany({ where: { user: { phone: { in: [testPhone, secondaryPhone] } } } });
+    await prisma.user.deleteMany({ where: { phone: { in: [testPhone, secondaryPhone] } } });
+  });
+
+  afterAll(async () => {
+    // Clean up any remaining test records and disconnect Prisma client
+    await prisma.otpChallenge.deleteMany({ where: { phone: { in: [testPhone, secondaryPhone] } } });
+    await prisma.loan.deleteMany({ where: { user: { phone: { in: [testPhone, secondaryPhone] } } } });
+    await prisma.user.deleteMany({ where: { phone: { in: [testPhone, secondaryPhone] } } });
+    await prisma.$disconnect();
   });
 
   // Test send-otp endpoint generates challenge without exposing OTP in response
@@ -171,7 +181,7 @@ describe('Auth Integration Tests', () => {
 describe('JWT Middleware Integration Tests', () => {
   const testApp = express();
   testApp.use(express.json());
-  testApp.get('/api/test-protected', requireAuth, (req, res) => {
+  testApp.get('/api/test-protected', requireAuth, (req: Request, res: Response) => {
     res.json({ success: true, user: req.user });
   });
 
@@ -195,20 +205,20 @@ describe('JWT Middleware Integration Tests', () => {
 
   // Test protected route accepting valid JWT token issued by verify-otp
   it('accepts requests with valid JWT and derives identity from token', async () => {
-    const testPhone = '+919999988888';
+    const secondaryPhone = '+919999988888';
     const testOtp = '654321';
 
     await prisma.otpChallenge.create({
       data: {
-        phone: testPhone,
-        codeHash: hashOtp(testPhone, testOtp),
+        phone: secondaryPhone,
+        codeHash: hashOtp(secondaryPhone, testOtp),
         expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       },
     });
 
     const loginRes = await request(app)
       .post('/api/auth/verify-otp')
-      .send({ phone: testPhone, otp: testOtp });
+      .send({ phone: secondaryPhone, otp: testOtp });
 
     const token = loginRes.body.token;
 
@@ -218,7 +228,7 @@ describe('JWT Middleware Integration Tests', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.user.phone).toBe(testPhone);
+    expect(res.body.user.phone).toBe(secondaryPhone);
     expect(res.body.user.id).toBe(loginRes.body.user.id);
   });
 });
