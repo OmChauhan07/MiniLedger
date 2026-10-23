@@ -1,7 +1,7 @@
 // Purpose: Modernized Add Loan modal bottom sheet with Lent/Borrowed direction selector matching MiniLedger Stitch specifications.
 // Imported by: DashboardScreen.tsx, AllLoansScreen.tsx, App.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -38,6 +38,13 @@ export function AddLoanModal({
   const [loanType, setLoanType] = useState<LoanDirection>(defaultDirection);
   const [friendName, setFriendName] = useState('');
   const [amount, setAmount] = useState('5000');
+
+  useEffect(() => {
+    if (visible) {
+      setLoanType(defaultDirection);
+      setError(null);
+    }
+  }, [visible, defaultDirection]);
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 30);

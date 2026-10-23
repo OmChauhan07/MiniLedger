@@ -3,7 +3,7 @@
 // Imported by: src/features/dashboard/DashboardScreen.tsx
 
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Summary } from '../types/index';
 import { formatCurrencyCompact } from '../utils/format';
 import { Theme } from '../theme/index';
@@ -13,12 +13,16 @@ interface SummaryCardsProps {
   summary: Summary | null;
   totalLoansCount?: number;
   overdueLoansCount?: number;
+  onPressLent?: () => void;
+  onPressBorrowed?: () => void;
 }
 
 export function SummaryCards({
   summary,
   totalLoansCount = 0,
   overdueLoansCount = 0,
+  onPressLent,
+  onPressBorrowed,
 }: SummaryCardsProps) {
   // Lent (Receivables)
   const lentOutstanding = parseFloat(summary?.outstandingLent ?? summary?.outstandingAmount ?? '0') || 0;
@@ -38,7 +42,11 @@ export function SummaryCards({
       {/* Row 1: Outstanding Balances (Lent vs Borrowed) */}
       <View style={styles.gridRow}>
         {/* 1. Lent Outstanding (They owe you) */}
-        <View style={styles.cardLent}>
+        <TouchableOpacity
+          style={styles.cardLent}
+          onPress={onPressLent}
+          activeOpacity={onPressLent ? 0.75 : 1}
+        >
           <View style={styles.cardHeader}>
             <View>
               <Text style={styles.kickerLent}>RECEIVABLE</Text>
@@ -50,12 +58,16 @@ export function SummaryCards({
           </View>
           <View style={styles.cardBottom}>
             <Text style={styles.amountNeutral}>{formatCurrencyCompact(lentOutstanding)}</Text>
-            <Text style={styles.subtextNeutral}>They owe you</Text>
+            <Text style={styles.subtextNeutral}>They owe you ➔</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* 2. Borrowed Outstanding (You owe them) */}
-        <View style={styles.cardBorrowed}>
+        <TouchableOpacity
+          style={styles.cardBorrowed}
+          onPress={onPressBorrowed}
+          activeOpacity={onPressBorrowed ? 0.75 : 1}
+        >
           <View style={styles.cardHeader}>
             <View>
               <Text style={styles.kickerBorrowed}>PAYABLE</Text>
@@ -67,15 +79,19 @@ export function SummaryCards({
           </View>
           <View style={styles.cardBottom}>
             <Text style={styles.amountNeutral}>{formatCurrencyCompact(borrowedOutstanding)}</Text>
-            <Text style={styles.subtextNeutral}>You owe them</Text>
+            <Text style={styles.subtextNeutral}>You owe them ➔</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Row 2: Overdue Obligations (Receivable vs Payable) */}
       <View style={styles.gridRow}>
         {/* 3. Overdue Receivable */}
-        <View style={[styles.cardAlert, !hasOverdueReceivable && styles.cardAlertClear]}>
+        <TouchableOpacity
+          style={[styles.cardAlert, !hasOverdueReceivable && styles.cardAlertClear]}
+          onPress={onPressLent}
+          activeOpacity={onPressLent ? 0.75 : 1}
+        >
           <View style={styles.cardHeader}>
             <Text style={[styles.labelAlert, !hasOverdueReceivable && styles.labelAlertClear]}>
               Overdue to You
@@ -93,13 +109,17 @@ export function SummaryCards({
               {formatCurrencyCompact(overdueReceivable)}
             </Text>
             <Text style={styles.subtextAlert}>
-              {hasOverdueReceivable ? 'Action required' : 'No overdue records'}
+              {hasOverdueReceivable ? 'Action required ➔' : 'No overdue records'}
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* 4. Overdue Payable */}
-        <View style={[styles.cardAlert, !hasOverduePayable && styles.cardAlertClear]}>
+        <TouchableOpacity
+          style={[styles.cardAlert, !hasOverduePayable && styles.cardAlertClear]}
+          onPress={onPressBorrowed}
+          activeOpacity={onPressBorrowed ? 0.75 : 1}
+        >
           <View style={styles.cardHeader}>
             <Text style={[styles.labelAlert, !hasOverduePayable && styles.labelAlertClear]}>
               Overdue from You
@@ -117,10 +137,10 @@ export function SummaryCards({
               {formatCurrencyCompact(overduePayable)}
             </Text>
             <Text style={styles.subtextAlert}>
-              {hasOverduePayable ? 'Pay back immediately' : 'Payments on schedule'}
+              {hasOverduePayable ? 'Pay back immediately ➔' : 'Payments on schedule'}
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Bottom Summary Strip: Cumulative Totals */}

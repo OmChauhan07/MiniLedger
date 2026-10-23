@@ -4,13 +4,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, ActivityIndicator, Text, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { User, Loan, Summary, CreateLoanPayload } from './src/types/index';
+import { User, Loan, Summary, CreateLoanPayload, LoanDirection } from './src/types/index';
 import { getStoredToken, getStoredUser, clearStoredToken, clearStoredUser } from './src/utils/storage';
 import { fetchSummaryApi } from './src/api/summary.api';
 import { fetchLoansApi, markLoanRepaidApi, createLoanApi } from './src/api/loan.api';
 import { LoginScreen } from './src/features/auth/LoginScreen';
 import { OtpScreen } from './src/features/auth/OtpScreen';
 import { DashboardScreen } from './src/features/dashboard/DashboardScreen';
+import { LentLoansScreen } from './src/features/loans/LentLoansScreen';
+import { BorrowedLoansScreen } from './src/features/loans/BorrowedLoansScreen';
 import { AllLoansScreen } from './src/features/loans/AllLoansScreen';
 import { AccountScreen } from './src/features/account/AccountScreen';
 import { BottomNav, TabKey } from './src/components/BottomNav';
@@ -31,6 +33,7 @@ export default function App() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [isLedgerLoading, setIsLedgerLoading] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [modalDefaultDirection, setModalDefaultDirection] = useState<LoanDirection>('LENT');
 
   // Toast notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -137,6 +140,25 @@ export default function App() {
     setToastVisible(true);
   };
 
+  const openAddLent = () => {
+    setModalDefaultDirection('LENT');
+    setIsAddModalVisible(true);
+  };
+
+  const openAddBorrowed = () => {
+    setModalDefaultDirection('BORROWED');
+    setIsAddModalVisible(true);
+  };
+
+  const openAddFromNav = () => {
+    if (currentTab === 'borrowed') {
+      setModalDefaultDirection('BORROWED');
+    } else {
+      setModalDefaultDirection('LENT');
+    }
+    setIsAddModalVisible(true);
+  };
+
   if (isInitializing) {
     return (
       <View style={styles.splashContainer}>
@@ -168,8 +190,30 @@ export default function App() {
                 user={user}
                 onLogout={handleLogout}
                 onNavigateToAllLoans={() => setCurrentTab('all-loans')}
+                onNavigateToLent={() => setCurrentTab('lent')}
+                onNavigateToBorrowed={() => setCurrentTab('borrowed')}
                 onNavigateToAccount={() => setCurrentTab('account')}
-                onOpenAddLoan={() => setIsAddModalVisible(true)}
+                onOpenAddLoan={openAddFromNav}
+              />
+            )}
+            {currentTab === 'lent' && (
+              <LentLoansScreen
+                loans={loans}
+                summary={summary}
+                isLoading={isLedgerLoading}
+                onRefresh={loadLedgerData}
+                onRepayLoan={handleRepayLoan}
+                onOpenAddLoan={openAddLent}
+              />
+            )}
+            {currentTab === 'borrowed' && (
+              <BorrowedLoansScreen
+                loans={loans}
+                summary={summary}
+                isLoading={isLedgerLoading}
+                onRefresh={loadLedgerData}
+                onRepayLoan={handleRepayLoan}
+                onOpenAddLoan={openAddBorrowed}
               />
             )}
             {currentTab === 'all-loans' && (
@@ -179,7 +223,7 @@ export default function App() {
                 isLoading={isLedgerLoading}
                 onRefresh={loadLedgerData}
                 onRepayLoan={handleRepayLoan}
-                onOpenAddLoan={() => setIsAddModalVisible(true)}
+                onOpenAddLoan={openAddFromNav}
               />
             )}
             {currentTab === 'account' && (
@@ -193,11 +237,11 @@ export default function App() {
             )}
           </View>
 
-          {/* Bottom 4-Tab Navigation Bar */}
+          {/* Bottom 5-Tab Navigation Bar with Lent and Borrowed */}
           <BottomNav
             currentTab={currentTab}
             onSelectTab={setCurrentTab}
-            onAddLoanPress={() => setIsAddModalVisible(true)}
+            onAddLoanPress={openAddFromNav}
           />
 
           {/* Global Add Loan Modal */}
@@ -205,6 +249,7 @@ export default function App() {
             visible={isAddModalVisible}
             onClose={() => setIsAddModalVisible(false)}
             onSubmit={handleCreateLoan}
+            defaultDirection={modalDefaultDirection}
           />
         </View>
       ) : pendingPhone ? (

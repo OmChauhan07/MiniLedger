@@ -22,7 +22,7 @@ import { LoanCard } from '../../components/LoanCard';
 import { AddLoanModal } from '../../components/AddLoanModal';
 import { LoanDetailsModal } from '../../components/LoanDetailsModal';
 import { Toast } from '../../components/Toast';
-import { EyeIcon, BoltIcon, WalletIcon } from '../../components/Icons';
+import { EyeIcon, BoltIcon, WalletIcon, ArrowUpRightIcon, ArrowDownLeftIcon } from '../../components/Icons';
 import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 import { formatCurrencyCompact, getInitials } from '../../utils/format';
 
@@ -30,6 +30,8 @@ interface DashboardScreenProps {
   user: User;
   onLogout: () => void;
   onNavigateToAllLoans?: () => void;
+  onNavigateToLent?: () => void;
+  onNavigateToBorrowed?: () => void;
   onNavigateToAccount?: () => void;
   onOpenAddLoan?: () => void;
   externalAddModalVisible?: boolean;
@@ -40,6 +42,8 @@ export function DashboardScreen({
   user,
   onLogout,
   onNavigateToAllLoans,
+  onNavigateToLent,
+  onNavigateToBorrowed,
   onNavigateToAccount,
   onOpenAddLoan,
   externalAddModalVisible,
@@ -234,6 +238,8 @@ export function DashboardScreen({
                 summary={summary}
                 totalLoansCount={loans.length}
                 overdueLoansCount={overdueCount}
+                onPressLent={onNavigateToLent}
+                onPressBorrowed={onNavigateToBorrowed}
               />
 
               {/* Quick Action Banner */}
@@ -243,30 +249,30 @@ export function DashboardScreen({
                     <BoltIcon size={14} color="#FFFFFF" />
                   </View>
                   <View style={styles.quickActionTextCol}>
-                    <Text style={styles.quickActionTitle}>Quick Ledger Actions</Text>
+                    <Text style={styles.quickActionTitle}>Quick Ledger Navigation</Text>
                     <Text style={styles.quickActionSubtitle}>
-                      Record transfers or inspect ledger logs
+                      Jump directly to separate Lent and Borrowed pages
                     </Text>
                   </View>
                 </View>
 
                 <View style={styles.quickActionButtonsRow}>
                   <TouchableOpacity
-                    style={styles.addLoanQuickBtn}
-                    onPress={() => setAddModalVisible(true)}
+                    style={styles.lentQuickBtn}
+                    onPress={onNavigateToLent}
                     activeOpacity={0.85}
                   >
-                    <Text style={styles.addLoanQuickIcon}>+</Text>
-                    <Text style={styles.addLoanQuickText}>Add Loan</Text>
+                    <ArrowUpRightIcon size={14} color="#059669" strokeWidth={2.4} />
+                    <Text style={styles.lentQuickText}>Lent Money ➔</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={styles.filterQuickBtn}
-                    onPress={onNavigateToAllLoans}
+                    style={styles.borrowedQuickBtn}
+                    onPress={onNavigateToBorrowed}
                     activeOpacity={0.85}
                   >
-                    <Text style={styles.filterQuickIcon}>⚙</Text>
-                    <Text style={styles.filterQuickText}>Filter Ledger</Text>
+                    <ArrowDownLeftIcon size={14} color="#D97706" strokeWidth={2.4} />
+                    <Text style={styles.borrowedQuickText}>Borrowed Money ➔</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -280,15 +286,32 @@ export function DashboardScreen({
                   </View>
                 </View>
 
-                {loans.length > 0 && onNavigateToAllLoans && (
-                  <TouchableOpacity
-                    onPress={onNavigateToAllLoans}
-                    style={styles.seeAllBtn}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.seeAllText}>See all ({loans.length})</Text>
-                    <Text style={styles.seeAllChevron}>➔</Text>
-                  </TouchableOpacity>
+                {loans.length > 0 && (
+                  <View style={styles.seeAllGroup}>
+                    {onNavigateToLent && (
+                      <TouchableOpacity
+                        onPress={onNavigateToLent}
+                        style={styles.seeAllBtn}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.seeAllText}>
+                          Lent ({loans.filter((l) => (l.type ?? 'LENT') === 'LENT').length})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    <Text style={styles.seeAllSeparator}>·</Text>
+                    {onNavigateToBorrowed && (
+                      <TouchableOpacity
+                        onPress={onNavigateToBorrowed}
+                        style={styles.seeAllBtn}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.seeAllText}>
+                          Borrowed ({loans.filter((l) => l.type === 'BORROWED').length})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 )}
               </View>
             </View>
@@ -538,6 +561,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
+  lentQuickBtn: {
+    flex: 1,
+    height: 44,
+    backgroundColor: '#ECFDF5',
+    borderRadius: Theme.borderRadius.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.2,
+    borderColor: '#A7F3D0',
+    gap: 6,
+    ...Theme.shadows.sm,
+  },
+  lentQuickText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#064E3B',
+  },
+  borrowedQuickBtn: {
+    flex: 1,
+    height: 44,
+    backgroundColor: '#FFFBEB',
+    borderRadius: Theme.borderRadius.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.2,
+    borderColor: '#FDE68A',
+    gap: 6,
+    ...Theme.shadows.sm,
+  },
+  borrowedQuickText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78350F',
+  },
   addLoanQuickBtn: {
     flex: 1,
     height: 44,
@@ -580,6 +639,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: Theme.colors.textPrimary,
+  },
+  seeAllGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  seeAllSeparator: {
+    fontSize: 12,
+    color: Theme.colors.textMuted,
   },
   sectionHeaderRow: {
     flexDirection: 'row',

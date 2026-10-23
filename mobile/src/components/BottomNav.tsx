@@ -1,4 +1,4 @@
-// Purpose: High-end bottom navigation footer bar featuring symmetrical 4-column layout, pure Royal Obsidian Black vector icons, smooth gliding active indicator, elevated '+' action button, and spacious gesture bar padding.
+// Purpose: High-end bottom navigation footer bar featuring symmetrical 5-column layout, pure Royal Obsidian Black vector icons, dedicated Lent and Borrowed tabs, smooth gliding active indicator, elevated '+' action button, and spacious gesture bar padding.
 // Imported by: App.tsx
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Theme } from '../theme/index';
 
-export type TabKey = 'dashboard' | 'all-loans' | 'account';
+export type TabKey = 'dashboard' | 'lent' | 'borrowed' | 'account' | 'all-loans';
 
 interface BottomNavProps {
   currentTab: TabKey;
@@ -57,30 +57,95 @@ function HomeIcon({ active }: { active: boolean }) {
   );
 }
 
-// 2. Sleek Royal Black Ledger / Receipts Icon
-function LedgerIcon({ active }: { active: boolean }) {
-  const color = active ? '#0F172A' : '#94A3B8';
-  const lineBg = active ? '#FFFFFF' : color;
+// 2. Lent Nav Icon (Money Out ↗)
+function LentNavIcon({ active }: { active: boolean }) {
+  const color = active ? '#059669' : '#94A3B8';
   return (
     <View style={iconStyles.container}>
       <View
-        style={[
-          iconStyles.docContainer,
-          {
-            borderColor: color,
-            backgroundColor: active ? color : 'transparent',
-          },
-        ]}
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          borderWidth: active ? 1.8 : 1.5,
+          borderColor: color,
+          backgroundColor: active ? '#ECFDF5' : 'transparent',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
       >
-        <View style={[iconStyles.docLine, { backgroundColor: lineBg }]} />
-        <View style={[iconStyles.docLine, { backgroundColor: lineBg }]} />
-        <View style={[iconStyles.docLineShort, { backgroundColor: lineBg }]} />
+        {/* Diagonal Stem */}
+        <View
+          style={{
+            width: 9,
+            height: 1.8,
+            backgroundColor: color,
+            transform: [{ rotate: '-45deg' }],
+          }}
+        />
+        {/* Arrowhead */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 4,
+            right: 4,
+            width: 4.5,
+            height: 4.5,
+            borderTopWidth: 1.8,
+            borderRightWidth: 1.8,
+            borderColor: color,
+          }}
+        />
       </View>
     </View>
   );
 }
 
-// 3. Sleek Royal Black User Silhouette Icon
+// 3. Borrowed Nav Icon (Money In ↙)
+function BorrowedNavIcon({ active }: { active: boolean }) {
+  const color = active ? '#D97706' : '#94A3B8';
+  return (
+    <View style={iconStyles.container}>
+      <View
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          borderWidth: active ? 1.8 : 1.5,
+          borderColor: color,
+          backgroundColor: active ? '#FFFBEB' : 'transparent',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {/* Diagonal Stem */}
+        <View
+          style={{
+            width: 9,
+            height: 1.8,
+            backgroundColor: color,
+            transform: [{ rotate: '-45deg' }],
+          }}
+        />
+        {/* Arrowhead */}
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 4,
+            left: 4,
+            width: 4.5,
+            height: 4.5,
+            borderBottomWidth: 1.8,
+            borderLeftWidth: 1.8,
+            borderColor: color,
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
+// 4. Sleek Royal Black User Silhouette Icon
 function UserIcon({ active }: { active: boolean }) {
   const color = active ? '#0F172A' : '#94A3B8';
   return (
@@ -109,7 +174,7 @@ function UserIcon({ active }: { active: boolean }) {
   );
 }
 
-// 4. Centered Plus Vector Icon
+// 5. Centered Plus Vector Icon
 function PlusVectorIcon() {
   return (
     <View style={iconStyles.plusBox}>
@@ -152,28 +217,6 @@ const iconStyles = StyleSheet.create({
     borderTopLeftRadius: 1.5,
     borderTopRightRadius: 1.5,
   },
-  docContainer: {
-    width: 19,
-    height: 23,
-    borderRadius: 3.5,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 2.5,
-    paddingVertical: 3,
-  },
-  docLine: {
-    width: '100%',
-    height: 2,
-    borderRadius: 1,
-    marginBottom: 2.5,
-  },
-  docLineShort: {
-    width: '60%',
-    height: 2,
-    borderRadius: 1,
-    alignSelf: 'flex-start',
-  },
   userHead: {
     width: 9,
     height: 9,
@@ -211,7 +254,7 @@ const iconStyles = StyleSheet.create({
   },
 });
 
-const INDICATOR_WIDTH = 28;
+const INDICATOR_WIDTH = 24;
 
 export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNavProps) {
   // Measurements for sliding indicator
@@ -221,7 +264,8 @@ export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNav
 
   // Tab bounce scales
   const dashboardScale = useRef(new Animated.Value(1)).current;
-  const allLoansScale = useRef(new Animated.Value(1)).current;
+  const lentScale = useRef(new Animated.Value(1)).current;
+  const borrowedScale = useRef(new Animated.Value(1)).current;
   const accountScale = useRef(new Animated.Value(1)).current;
   const addScale = useRef(new Animated.Value(1)).current;
 
@@ -304,35 +348,35 @@ export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNav
                 currentTab === 'dashboard' && styles.tabLabelActive,
               ]}
             >
-              Dashboard
+              Home
             </Text>
             {currentTab === 'dashboard' && <View style={styles.activeDotPill} />}
           </Animated.View>
         </TouchableOpacity>
 
-        {/* Tab 2: All Loans */}
+        {/* Tab 2: Lent (They Owe You) */}
         <TouchableOpacity
           style={styles.tabItem}
-          onLayout={(e) => handleTabLayout('all-loans', e)}
-          onPress={() => animatePress(allLoansScale, () => onSelectTab('all-loans'))}
+          onLayout={(e) => handleTabLayout('lent', e)}
+          onPress={() => animatePress(lentScale, () => onSelectTab('lent'))}
           activeOpacity={0.75}
         >
           <Animated.View
             style={[
               styles.tabInner,
-              { transform: [{ scale: allLoansScale }] },
+              { transform: [{ scale: lentScale }] },
             ]}
           >
-            <LedgerIcon active={currentTab === 'all-loans'} />
+            <LentNavIcon active={currentTab === 'lent'} />
             <Text
               style={[
                 styles.tabLabel,
-                currentTab === 'all-loans' && styles.tabLabelActive,
+                currentTab === 'lent' && styles.tabLabelActiveLent,
               ]}
             >
-              All Loans
+              Lent
             </Text>
-            {currentTab === 'all-loans' && <View style={styles.activeDotPill} />}
+            {currentTab === 'lent' && <View style={[styles.activeDotPill, styles.activeDotLent]} />}
           </Animated.View>
         </TouchableOpacity>
 
@@ -351,11 +395,37 @@ export function BottomNav({ currentTab, onSelectTab, onAddLoanPress }: BottomNav
             <View style={styles.actionFabButton}>
               <PlusVectorIcon />
             </View>
-            <Text style={styles.actionLabel}>New Loan</Text>
+            <Text style={styles.actionLabel}>New</Text>
           </Animated.View>
         </TouchableOpacity>
 
-        {/* Tab 4: Account */}
+        {/* Tab 4: Borrowed (You Owe Them) */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onLayout={(e) => handleTabLayout('borrowed', e)}
+          onPress={() => animatePress(borrowedScale, () => onSelectTab('borrowed'))}
+          activeOpacity={0.75}
+        >
+          <Animated.View
+            style={[
+              styles.tabInner,
+              { transform: [{ scale: borrowedScale }] },
+            ]}
+          >
+            <BorrowedNavIcon active={currentTab === 'borrowed'} />
+            <Text
+              style={[
+                styles.tabLabel,
+                currentTab === 'borrowed' && styles.tabLabelActiveBorrowed,
+              ]}
+            >
+              Borrowed
+            </Text>
+            {currentTab === 'borrowed' && <View style={[styles.activeDotPill, styles.activeDotBorrowed]} />}
+          </Animated.View>
+        </TouchableOpacity>
+
+        {/* Tab 5: Account */}
         <TouchableOpacity
           style={styles.tabItem}
           onLayout={(e) => handleTabLayout('account', e)}
@@ -433,7 +503,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '500',
     color: '#94A3B8',
     letterSpacing: -0.1,
@@ -442,12 +512,26 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontWeight: '700',
   },
+  tabLabelActiveLent: {
+    color: '#059669',
+    fontWeight: '700',
+  },
+  tabLabelActiveBorrowed: {
+    color: '#D97706',
+    fontWeight: '700',
+  },
   activeDotPill: {
     width: 4,
     height: 4,
     borderRadius: 2,
     backgroundColor: '#0F172A',
     marginTop: 1,
+  },
+  activeDotLent: {
+    backgroundColor: '#059669',
+  },
+  activeDotBorrowed: {
+    backgroundColor: '#D97706',
   },
   actionTabItem: {
     flex: 1,
@@ -461,19 +545,17 @@ const styles = StyleSheet.create({
     marginTop: -8,
   },
   actionFabButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#0F172A', // Royal Obsidian Black
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#0F172A',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.25,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.28,
         shadowRadius: 6,
       },
       android: {
@@ -483,9 +565,8 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#64748B',
-    marginTop: 2,
-    letterSpacing: -0.1,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 3,
   },
 });
