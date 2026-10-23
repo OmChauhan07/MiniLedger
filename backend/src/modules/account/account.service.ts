@@ -2,27 +2,31 @@
 // Imported by: src/modules/account/account.controller.ts, tests/account-and-pdf.test.ts
 
 import jwt from 'jsonwebtoken';
+import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { generateOtp, hashOtp, verifyOtpHash } from '../../lib/crypto.js';
 import { config } from '../../config/env.js';
 
 const OTP_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+const OTP_COOLDOWN_MS = 60 * 1000; // 60 seconds
 const MAX_ATTEMPTS = 3;
+
+export const profileUpdateTokenSchema = z.object({
+  purpose: z.literal('profile_update'),
+  userId: z.string().min(1),
+  challengeId: z.string().min(1),
+  pendingChanges: z.object({
+    name: z.string().nullable(),
+    email: z.string().email().nullable(),
+  }),
+});
 
 export interface ProfileUpdatePayload {
   name?: string;
   email?: string | null;
 }
 
-export interface ProfileUpdateTokenPayload {
-  purpose: 'profile_update';
-  userId: string;
-  challengeId: string;
-  pendingChanges: {
-    name: string | null;
-    email: string | null;
-  };
-}
+export type ProfileUpdateTokenPayload = z.infer<typeof profileUpdateTokenSchema>;
 
 /**
  * Formats a phone number for privacy display (+91 98••• ••210).
@@ -113,6 +117,27 @@ export async function initiateProfileUpdate(
     };
   }
 
+  // Check cooldown: reject if an OTP challenge was created within OTP_COOLDOWN_MS
+  const recentChallenge = await prisma.otpChallenge.findFirst({
+    where: { phone: user.phone },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (recentChallenge) {
+    const elapsedMs = Date.now() - recentChallenge.createdAt.getTime();
+    if (elapsedMs < OTP_COOLDOWN_MS) {
+      const waitSeconds = Math.max(1, Math.ceil((OTP_COOLDOWN_MS - elapsedMs) / 1000));
+      return {
+        success: false as const,
+        status: 429,
+        error: {
+          code: 'OTP_COOLDOWN',
+          message: `Please wait ${waitSeconds} seconds before requesting a new verification code.`,
+        },
+      };
+    }
+  }
+
   // Create OTP challenge for verified phone number
   const otp = generateOtp();
   const codeHash = hashOtp(user.phone, otp);
@@ -170,7 +195,19 @@ export async function verifyAndApplyProfileUpdate(
   let payload: ProfileUpdateTokenPayload;
 
   try {
-    payload = jwt.verify(updateToken, config.JWT_SECRET) as ProfileUpdateTokenPayload;
+    const decoded = jwt.verify(updateToken, config.JWT_SECRET);
+    const parseResult = profileUpdateTokenSchema.safeParse(decoded);
+    if (!parseResult.success) {
+      return {
+        success: false as const,
+        status: 401,
+        error: {
+          code: 'INVALID_UPDATE_TOKEN',
+          message: 'The profile update verification session payload is malformed. Please initiate the change again.',
+        },
+      };
+    }
+    payload = parseResult.data;
   } catch (err) {
     return {
       success: false as const,
@@ -260,36 +297,61 @@ export async function verifyAndApplyProfileUpdate(
     };
   }
 
-  // Mark challenge as consumed
-  await prisma.otpChallenge.update({
-    where: { id: challenge.id },
-    data: { consumedAt: new Date() },
-  });
+  // Atomically consume challenge and apply changes to user account in a single transaction
+  try {
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      // Atomic conditional update ensuring challenge has NOT been consumed
+      const updateResult = await tx.otpChallenge.updateMany({
+        where: {
+          id: challenge.id,
+          consumedAt: null,
+        },
+        data: {
+          consumedAt: new Date(),
+        },
+      });
 
-  // Apply changes to user account
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      name: payload.pendingChanges.name,
-      email: payload.pendingChanges.email,
-    },
-    select: {
-      id: true,
-      phone: true,
-      name: true,
-      email: true,
-      phoneVerifiedAt: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+      if (updateResult.count === 0) {
+        throw new Error('OTP_ALREADY_USED');
+      }
 
-  return {
-    success: true as const,
-    status: 200,
-    data: {
-      message: 'Profile updated successfully.',
-      user: updatedUser,
-    },
-  };
+      return await tx.user.update({
+        where: { id: userId },
+        data: {
+          name: payload.pendingChanges.name,
+          email: payload.pendingChanges.email,
+        },
+        select: {
+          id: true,
+          phone: true,
+          name: true,
+          email: true,
+          phoneVerifiedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    });
+
+    return {
+      success: true as const,
+      status: 200,
+      data: {
+        message: 'Profile updated successfully.',
+        user: updatedUser,
+      },
+    };
+  } catch (err: any) {
+    if (err.message === 'OTP_ALREADY_USED') {
+      return {
+        success: false as const,
+        status: 401,
+        error: {
+          code: 'OTP_ALREADY_USED',
+          message: 'This OTP verification code has already been consumed.',
+        },
+      };
+    }
+    throw err;
+  }
 }

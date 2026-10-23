@@ -21,6 +21,7 @@ describe('Account Profile Editing & PDF Ledger Export Integration Tests', () => 
   const userCPhone = '+919777555666';
 
   beforeAll(async () => {
+    await prisma.$connect();
     const phones = [userAPhone, userBPhone, userCPhone];
     // Clean up existing test users if any
     await prisma.loan.deleteMany({
@@ -243,6 +244,42 @@ describe('Account Profile Editing & PDF Ledger Export Integration Tests', () => 
 
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('OTP_ALREADY_USED');
+    });
+
+    it('PATCH /api/account enforces cooldown when requesting consecutive updates', async () => {
+      // First update request created a challenge in earlier test
+      // An immediate second request with different values triggers cooldown
+      const res = await request(app)
+        .patch('/api/account')
+        .set('Authorization', `Bearer ${userAToken}`)
+        .send({
+          name: 'Alice Brand New',
+        });
+
+      expect(res.status).toBe(429);
+      expect(res.body.error.code).toBe('OTP_COOLDOWN');
+    });
+
+    it('POST /api/account/verify-update rejects malformed updateToken payload', async () => {
+      const jwt = (await import('jsonwebtoken')).default;
+      const { config } = await import('../src/config/env.js');
+
+      // Forge token with invalid payload structure (missing pendingChanges)
+      const badToken = jwt.sign(
+        { purpose: 'profile_update', userId: userAId, challengeId: 'invalid-id' },
+        config.JWT_SECRET
+      );
+
+      const res = await request(app)
+        .post('/api/account/verify-update')
+        .set('Authorization', `Bearer ${userAToken}`)
+        .send({
+          updateToken: badToken,
+          otp: '123456',
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('INVALID_UPDATE_TOKEN');
     });
   });
 
