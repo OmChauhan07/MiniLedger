@@ -14,6 +14,15 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { User, Summary } from '../../types/index';
+import {
+  ShieldIcon,
+  CheckIcon,
+  LockIcon,
+  ExportIcon,
+  LogoutIcon,
+  ChatIcon,
+  InfoIcon,
+} from '../../components/Icons';
 import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 import { formatCurrencyCompact } from '../../utils/format';
 
@@ -84,7 +93,7 @@ export function AccountScreen({
             <View style={styles.avatarCircle}>
               <Text style={styles.avatarText}>{userInitials}</Text>
               <View style={styles.verifiedCheckBadge}>
-                <Text style={styles.verifiedCheckText}>✓</Text>
+                <CheckIcon size={9} color="#FFFFFF" strokeWidth={2.4} />
               </View>
             </View>
 
@@ -98,7 +107,7 @@ export function AccountScreen({
               <Text style={styles.userPhoneText}>{user.phone}</Text>
 
               <View style={styles.verifiedBadgeRow}>
-                <Text style={styles.shieldIcon}>🛡</Text>
+                <ShieldIcon size={11} color="#0F172A" />
                 <Text style={styles.verifiedBadgeText}>Phone Verified</Text>
               </View>
             </View>
@@ -142,7 +151,7 @@ export function AccountScreen({
           {/* WhatsApp Reminders Row */}
           <View style={styles.menuRow}>
             <View style={styles.menuIconBox}>
-              <Text style={styles.menuIconText}>💬</Text>
+              <ChatIcon size={16} color="#0F172A" />
             </View>
             <View style={styles.menuTextCol}>
               <Text style={styles.menuTitle}>Friendly Reminders</Text>
@@ -163,7 +172,7 @@ export function AccountScreen({
           {/* Screen Lock Security Row */}
           <View style={styles.menuRow}>
             <View style={styles.menuIconBox}>
-              <Text style={styles.menuIconText}>🔒</Text>
+              <LockIcon size={16} color="#0F172A" />
             </View>
             <View style={styles.menuTextCol}>
               <Text style={styles.menuTitle}>Screen Lock Security</Text>
@@ -186,7 +195,7 @@ export function AccountScreen({
             activeOpacity={0.7}
           >
             <View style={styles.menuIconBox}>
-              <Text style={styles.menuIconText}>📥</Text>
+              <ExportIcon size={16} color="#0F172A" />
             </View>
             <View style={styles.menuTextCol}>
               <Text style={styles.menuTitle}>Export Ledger Records</Text>
@@ -201,7 +210,7 @@ export function AccountScreen({
         <View style={styles.menuCard}>
           <View style={styles.menuRow}>
             <View style={styles.menuIconBox}>
-              <Text style={styles.menuIconText}>ℹ</Text>
+              <InfoIcon size={16} color="#0F172A" />
             </View>
             <View style={styles.menuTextCol}>
               <Text style={styles.menuTitle}>MiniLedger Mobile</Text>
@@ -217,7 +226,7 @@ export function AccountScreen({
             activeOpacity={0.7}
           >
             <View style={[styles.menuIconBox, styles.menuIconBoxDanger]}>
-              <Text style={styles.menuIconDangerText}>🚪</Text>
+              <LogoutIcon size={16} color="#DC2626" />
             </View>
             <View style={styles.menuTextCol}>
               <Text style={styles.menuTitleDanger}>Sign Out</Text>
@@ -351,13 +360,16 @@ const styles = StyleSheet.create({
   verifiedBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Theme.colors.statusRepaidTint,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.2,
+    borderColor: '#0F172A',
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
     borderRadius: Theme.borderRadius.full,
     marginTop: 6,
-    gap: 4,
+    gap: 5,
+    ...Theme.shadows.sm,
   },
   shieldIcon: {
     fontSize: 11,
@@ -365,7 +377,7 @@ const styles = StyleSheet.create({
   verifiedBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: Theme.colors.statusRepaid,
+    color: '#0F172A',
   },
   statStrip: {
     flexDirection: 'row',

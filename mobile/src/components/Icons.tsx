@@ -303,3 +303,168 @@ export function ShieldIcon({ size = 14, color = '#0F172A', strokeWidth = 1.8 }: 
     </View>
   );
 }
+
+// 9. Padlock Icon (Replaces 🔒)
+export function LockIcon({ size = 15, color = '#0F172A', strokeWidth = 1.8 }: IconProps) {
+  const w = size;
+  const h = size * 1.15;
+  const shackleW = w * 0.65;
+  const shackleH = h * 0.42;
+  return (
+    <View style={{ width: w, height: h, alignItems: 'center' }}>
+      {/* Shackle */}
+      <View
+        style={{
+          width: shackleW,
+          height: shackleH,
+          borderTopLeftRadius: shackleW / 2,
+          borderTopRightRadius: shackleW / 2,
+          borderWidth: strokeWidth,
+          borderBottomWidth: 0,
+          borderColor: color,
+        }}
+      />
+      {/* Body */}
+      <View
+        style={{
+          width: w,
+          height: h - shackleH + 1,
+          marginTop: -1,
+          borderRadius: 3,
+          borderWidth: strokeWidth,
+          borderColor: color,
+          backgroundColor: 'transparent',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <View style={{ width: 2, height: 3, backgroundColor: color, borderRadius: 1 }} />
+      </View>
+    </View>
+  );
+}
+
+// 10. Export / Tray Download Icon (Replaces 📥)
+export function ExportIcon({ size = 15, color = '#0F172A', strokeWidth = 1.8 }: IconProps) {
+  const w = size;
+  const h = size;
+  return (
+    <View style={{ width: w, height: h, alignItems: 'center', justifyContent: 'center' }}>
+      {/* Arrow shaft */}
+      <View style={{ width: strokeWidth, height: h * 0.48, backgroundColor: color, marginBottom: -2 }} />
+      {/* Arrow head */}
+      <View
+        style={{
+          width: w * 0.42,
+          height: w * 0.42,
+          borderBottomWidth: strokeWidth,
+          borderRightWidth: strokeWidth,
+          borderColor: color,
+          transform: [{ rotate: '45deg' }],
+          marginTop: -w * 0.22,
+          marginBottom: 3,
+        }}
+      />
+      {/* Bottom tray */}
+      <View
+        style={{
+          width: w,
+          height: h * 0.35,
+          borderLeftWidth: strokeWidth,
+          borderRightWidth: strokeWidth,
+          borderBottomWidth: strokeWidth,
+          borderColor: color,
+          borderBottomLeftRadius: 2.5,
+          borderBottomRightRadius: 2.5,
+        }}
+      />
+    </View>
+  );
+}
+
+// 11. Logout / Exit Icon (Replaces 🚪)
+export function LogoutIcon({ size = 15, color = '#DC2626', strokeWidth = 1.8 }: IconProps) {
+  const w = size;
+  const h = size;
+  return (
+    <View style={{ width: w, height: h, flexDirection: 'row', alignItems: 'center' }}>
+      {/* Door Frame */}
+      <View
+        style={{
+          width: w * 0.55,
+          height: h,
+          borderLeftWidth: strokeWidth,
+          borderTopWidth: strokeWidth,
+          borderBottomWidth: strokeWidth,
+          borderColor: color,
+          borderTopLeftRadius: 2.5,
+          borderBottomLeftRadius: 2.5,
+        }}
+      />
+      {/* Exit Arrow */}
+      <View style={{ position: 'absolute', right: 0, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: w * 0.65, height: strokeWidth, backgroundColor: color }} />
+        <View
+          style={{
+            position: 'absolute',
+            right: 0,
+            width: w * 0.35,
+            height: w * 0.35,
+            borderTopWidth: strokeWidth,
+            borderRightWidth: strokeWidth,
+            borderColor: color,
+            transform: [{ rotate: '45deg' }],
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
+// 12. Chat / Reminders Bubble Icon (Replaces 💬)
+export function ChatIcon({ size = 15, color = '#0F172A', strokeWidth = 1.8 }: IconProps) {
+  const w = size;
+  const h = size * 0.8;
+  return (
+    <View style={{ width: w, height: size, justifyContent: 'center' }}>
+      <View
+        style={{
+          width: w,
+          height: h,
+          borderRadius: 4,
+          borderWidth: strokeWidth,
+          borderColor: color,
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'row',
+          gap: 2,
+        }}
+      >
+        <View style={{ width: 2, height: 2, borderRadius: 1, backgroundColor: color }} />
+        <View style={{ width: 2, height: 2, borderRadius: 1, backgroundColor: color }} />
+        <View style={{ width: 2, height: 2, borderRadius: 1, backgroundColor: color }} />
+      </View>
+    </View>
+  );
+}
+
+// 13. Info Icon (Replaces ℹ)
+export function InfoIcon({ size = 15, color = '#0F172A', strokeWidth = 1.8 }: IconProps) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: strokeWidth,
+        borderColor: color,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View style={{ width: 2, height: 2, borderRadius: 1, backgroundColor: color, marginBottom: 1 }} />
+      <View style={{ width: 2, height: size * 0.35, borderRadius: 1, backgroundColor: color }} />
+    </View>
+  );
+}
+
