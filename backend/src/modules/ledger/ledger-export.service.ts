@@ -1,9 +1,12 @@
 // Purpose: Generates authoritative bank-statement styled personal loan ledger PDFs with filters and reconciliation.
 // Imported by: src/modules/ledger/ledger.controller.ts, tests/account-and-pdf.test.ts
 
+import { Prisma } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import { prisma } from '../../lib/prisma.js';
 import { formatLoan } from '../loans/loan.service.js';
+import { formatAmount } from '../../lib/money.js';
+import { isOverdue, parseDateOnly } from '../../lib/date.js';
 
 export interface LedgerExportOptions {
   direction?: 'ALL' | 'LENT' | 'BORROWED';
@@ -22,8 +25,14 @@ function maskPhoneNumber(phone: string): string {
   return phone;
 }
 
-function formatInr(amount: number | string): string {
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+function formatInr(amount: number | string | Prisma.Decimal): string {
+  const str =
+    amount instanceof Prisma.Decimal
+      ? formatAmount(amount)
+      : typeof amount === 'number'
+      ? amount.toFixed(2)
+      : amount;
+  const num = parseFloat(str);
   if (isNaN(num)) return '₹0.00';
   return '₹' + num.toLocaleString('en-IN', {
     minimumFractionDigits: 2,
@@ -67,14 +76,23 @@ export async function generateLedgerPdf(
     throw new Error('User not found');
   }
 
-  // Retrieve participant-aware authorized loans
+  // Retrieve participant-aware authorized loans, supporting bilateral counterparty filtering
+  const loanWhere: Prisma.LoanWhereInput = options.counterpartyId
+    ? {
+        OR: [
+          { userId, counterpartyUserId: options.counterpartyId },
+          { userId: options.counterpartyId, counterpartyUserId: userId },
+        ],
+      }
+    : {
+        OR: [
+          { userId },
+          { counterpartyUserId: userId },
+        ],
+      };
+
   const rawLoans = await prisma.loan.findMany({
-    where: {
-      OR: [
-        { userId },
-        { counterpartyUserId: userId },
-      ],
-    },
+    where: loanWhere,
     include: {
       user: { select: { id: true, name: true, phone: true } },
       counterpartyUser: { select: { id: true, name: true, phone: true } },
@@ -85,9 +103,28 @@ export async function generateLedgerPdf(
   // Invert perspective relative to the requesting user
   const callerLoans = rawLoans.map((l) => formatLoan(l, userId));
 
-  // Today at start of day (UTC) for accurate overdue calculation
   const now = new Date();
-  const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+  // Normalize date range boundaries to UTC
+  let filterStartDate: Date | null = null;
+  if (options.startDate) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(options.startDate)) {
+      filterStartDate = parseDateOnly(options.startDate);
+    } else {
+      filterStartDate = new Date(options.startDate);
+    }
+  }
+
+  let filterEndDate: Date | null = null;
+  if (options.endDate) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(options.endDate)) {
+      const [y, m, d] = options.endDate.split('-').map(Number);
+      filterEndDate = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+    } else {
+      filterEndDate = new Date(options.endDate);
+      filterEndDate.setUTCHours(23, 59, 59, 999);
+    }
+  }
 
   // Filter records
   const filteredLoans = callerLoans.filter((loan) => {
@@ -97,27 +134,19 @@ export async function generateLedgerPdf(
     }
 
     // Status filter
-    const isOverdue = !loan.isRepaid && new Date(loan.dueDate) < startOfToday;
+    const pastDue = isOverdue(loan.dueDate, loan.isRepaid, now);
     if (options.status && options.status !== 'ALL') {
       if (options.status === 'OUTSTANDING' && loan.isRepaid) return false;
       if (options.status === 'REPAID' && !loan.isRepaid) return false;
-      if (options.status === 'OVERDUE' && !isOverdue) return false;
+      if (options.status === 'OVERDUE' && !pastDue) return false;
     }
 
     // Date range filter (based on createdAt)
     const loanDate = new Date(loan.createdAt);
-    if (options.startDate) {
-      const start = new Date(options.startDate);
-      if (loanDate < start) return false;
-    }
-    if (options.endDate) {
-      const end = new Date(options.endDate);
-      // Include full day of endDate
-      end.setHours(23, 59, 59, 999);
-      if (loanDate > end) return false;
-    }
+    if (filterStartDate && loanDate < filterStartDate) return false;
+    if (filterEndDate && loanDate > filterEndDate) return false;
 
-    // Counterparty filter
+    // Counterparty filter (matching from caller's perspective)
     if (options.counterpartyId) {
       if (loan.counterpartyUserId !== options.counterpartyId) return false;
     }
@@ -125,46 +154,46 @@ export async function generateLedgerPdf(
     return true;
   });
 
-  // Calculate summary metrics on included records
-  let sumLent = 0;
-  let sumBorrowed = 0;
-  let outLent = 0;
-  let outBorrowed = 0;
-  let odReceivable = 0;
-  let odPayable = 0;
-  let sumRepaid = 0;
+  // Calculate summary metrics on included records using decimal-safe arithmetic
+  let sumLent = new Prisma.Decimal(0);
+  let sumBorrowed = new Prisma.Decimal(0);
+  let outLent = new Prisma.Decimal(0);
+  let outBorrowed = new Prisma.Decimal(0);
+  let odReceivable = new Prisma.Decimal(0);
+  let odPayable = new Prisma.Decimal(0);
+  let sumRepaid = new Prisma.Decimal(0);
 
   for (const loan of filteredLoans) {
-    const amt = parseFloat(loan.amount) || 0;
-    const isOverdue = !loan.isRepaid && new Date(loan.dueDate) < startOfToday;
+    const amt = new Prisma.Decimal(loan.amount);
+    const pastDue = isOverdue(loan.dueDate, loan.isRepaid, now);
 
     if (loan.type === 'LENT') {
-      sumLent += amt;
+      sumLent = sumLent.add(amt);
       if (!loan.isRepaid) {
-        outLent += amt;
-        if (isOverdue) odReceivable += amt;
+        outLent = outLent.add(amt);
+        if (pastDue) odReceivable = odReceivable.add(amt);
       } else {
-        sumRepaid += amt;
+        sumRepaid = sumRepaid.add(amt);
       }
     } else {
-      sumBorrowed += amt;
+      sumBorrowed = sumBorrowed.add(amt);
       if (!loan.isRepaid) {
-        outBorrowed += amt;
-        if (isOverdue) odPayable += amt;
+        outBorrowed = outBorrowed.add(amt);
+        if (pastDue) odPayable = odPayable.add(amt);
       } else {
-        sumRepaid += amt;
+        sumRepaid = sumRepaid.add(amt);
       }
     }
   }
 
   const summary = {
-    totalLent: sumLent.toFixed(2),
-    totalBorrowed: sumBorrowed.toFixed(2),
-    outstandingLent: outLent.toFixed(2),
-    outstandingBorrowed: outBorrowed.toFixed(2),
-    overdueReceivable: odReceivable.toFixed(2),
-    overduePayable: odPayable.toFixed(2),
-    repaidAmount: sumRepaid.toFixed(2),
+    totalLent: formatAmount(sumLent),
+    totalBorrowed: formatAmount(sumBorrowed),
+    outstandingLent: formatAmount(outLent),
+    outstandingBorrowed: formatAmount(outBorrowed),
+    overdueReceivable: formatAmount(odReceivable),
+    overduePayable: formatAmount(odPayable),
+    repaidAmount: formatAmount(sumRepaid),
   };
 
   const filename = `MiniLedger_Statement_${now.toISOString().slice(0, 10).replace(/-/g, '')}.pdf`;
@@ -316,9 +345,9 @@ export async function generateLedgerPdf(
           doc.rect(left, rowY, contentWidth, rowHeight).fill('#F8FAFC');
         }
 
-        const isOverdue = !loan.isRepaid && new Date(loan.dueDate) < startOfToday;
-        let statusText = loan.isRepaid ? 'Repaid' : isOverdue ? 'Overdue' : 'Pending';
-        let statusColor = loan.isRepaid ? '#059669' : isOverdue ? '#DC2626' : '#D97706';
+        const pastDue = isOverdue(loan.dueDate, loan.isRepaid, now);
+        let statusText = loan.isRepaid ? 'Repaid' : pastDue ? 'Overdue' : 'Pending';
+        let statusColor = loan.isRepaid ? '#059669' : pastDue ? '#DC2626' : '#D97706';
 
         // Date
         doc.fillColor('#334155').fontSize(8).font('Helvetica');
