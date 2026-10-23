@@ -1,40 +1,42 @@
 // Purpose: Centralized design system tokens, color palettes, spacing, and typography derived from MiniLedger Stitch specifications.
 // Imported by: Components across mobile/src (screens, cards, modals, navigation)
 
-import { Platform, Dimensions } from 'react-native';
+import { Platform, Dimensions, StatusBar as RNStatusBar } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+export const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 28) : 0;
+
 export const Theme = {
   colors: {
-    // Primary brand identity
-    primary: '#3525CD',
-    primaryContainer: '#4F46E5',
-    primaryLight: '#E0E7FF',
-    onPrimary: '#FFFFFF',
-    onPrimaryContainer: '#DAD7FF',
-    primaryFixed: '#E2DFFF',
-    onPrimaryFixed: '#0F0069',
+    // Primary brand identity: Royal Black / Obsidian Luxe
+    primary: '#0F172A', // Slate 900 / Royal Obsidian Black
+    primaryContainer: '#1E293B', // Slate 800 / Matte Charcoal
+    primaryLight: '#F1F5F9', // Slate 100 / Subtle Light Tint
+    onPrimary: '#FFFFFF', // Crisp White
+    onPrimaryContainer: '#F8FAFC', // Slate 50
+    primaryFixed: '#334155', // Slate 700
+    onPrimaryFixed: '#0F172A',
 
-    // Neutral surfaces and cards
+    // Neutral surfaces and cards (Clean luxury slate, no blue tint)
     background: '#F8FAFC',
     surface: '#F8FAFC',
     surfaceCard: '#FFFFFF',
-    surfaceContainerLow: '#EFF4FF',
-    surfaceContainer: '#E5EEFF',
-    surfaceContainerHigh: '#DCE9FF',
-    surfaceContainerHighest: '#D3E4FE',
+    surfaceContainerLow: '#F8FAFC',
+    surfaceContainer: '#F1F5F9',
+    surfaceContainerHigh: '#E2E8F0',
+    surfaceContainerHighest: '#CBD5E1',
 
     // Text & Labels
-    textPrimary: '#0B1C30',
-    textSecondary: '#545F73',
+    textPrimary: '#0F172A',
+    textSecondary: '#475569',
     textMuted: '#64748B',
     textInverse: '#FFFFFF',
 
     // Structural borders
     borderSubtle: '#E2E8F0',
     borderLight: '#F1F5F9',
-    outlineVariant: '#C7C4D8',
+    outlineVariant: '#CBD5E1',
 
     // Semantic Status: Overdue
     statusOverdue: '#DC2626',
@@ -153,9 +155,9 @@ export const Theme = {
     }),
     floating: Platform.select({
       ios: {
-        shadowColor: '#3525CD',
+        shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.18,
         shadowRadius: 10,
       },
       android: {
