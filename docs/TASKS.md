@@ -32,16 +32,16 @@ Purpose: This is the master execution checklist. Mark tasks only after completin
 - [x] Review, test, commit small units, and push only after checks pass.
 
 ## Phase 3 — Mobile screens and integration
-- [ ] Set up API client and environment-specific base URL.
-- [ ] Implement phone/OTP login screen.
-- [ ] Persist JWT using an appropriate secure mobile storage solution.
-- [ ] Implement dashboard summary card.
-- [ ] Implement loan list and overdue/repaid states.
-- [ ] Implement add-loan form and client-side validation.
-- [ ] Implement mark-repaid action and refresh behavior.
-- [ ] Add loading, empty, success and error states.
-- [ ] Run on Android phone/emulator and test end-to-end.
-- [ ] Review, test, commit small units, and push only after checks pass.
+- [x] Set up API client and environment-specific base URL.
+- [x] Implement phone/OTP login screen.
+- [x] Persist JWT using an appropriate secure mobile storage solution.
+- [x] Implement dashboard summary card.
+- [x] Implement loan list and overdue/repaid states.
+- [x] Implement add-loan form and client-side validation.
+- [x] Implement mark-repaid action and refresh behavior.
+- [x] Add loading, empty, success and error states.
+- [x] Run on Android phone/emulator and test end-to-end.
+- [x] Review, test, commit small units, and push only after checks pass.
 
 ## Phase 4 — Quality and delivery
 - [ ] Run all backend tests and build/type checks.

@@ -8,7 +8,7 @@ Purpose: Preserve verified project state between agent sessions. Update this fil
 - [x] Database schema/migrations
 - [x] Mock OTP + JWT
 - [x] Loan APIs + summary
-- [ ] Mobile login/dashboard/forms
+- [x] Mobile login/dashboard/forms
 - [ ] Tests and code review
 - [ ] GitHub README verified
 - [ ] Demo recording shared
@@ -91,8 +91,38 @@ Purpose: Preserve verified project state between agent sessions. Update this fil
   - `npm test`: Passed (20/20 tests passing across health, auth, and loans/summary suites).
   - `npm run build`: Passed (clean compilation to dist/).
 - **Review findings and fixes**: Verified cross-user isolation: User B attempting to repay User A's loan returns generic 404; duplicate repayment returns 409 conflict; repaid loans are immediately deducted from overdue amount and added to totalRepaid.
-- **Remote/push status**: Ready to commit and push.
-- **Next exact action**: Begin Phase 3 (React Native mobile app).
+- **Commit hashes**:
+  - `2b69abf`: `feat(loans): implement validated loan CRUD, repayment logic, and decimal-safe summary`
+- **Remote/push status**: Pushed to `origin/main`.
+
+### Phase 3 — Mobile Screens and Integration (2026-10-23)
+- **Phase/tasks worked on**: React Native mobile app with Expo, phone authentication flow, secure token persistence, dashboard with summary cards, loan list with overdue highlighting, loan creation modal, mark-repaid interaction, and physical Android device network configuration.
+- **Files created/changed**:
+  - `mobile/package.json`: Added `expo-secure-store` dependency and `"typecheck": "tsc --noEmit"` script.
+  - `mobile/src/types/index.ts`: Shared TypeScript models for User, Loan, Summary, CreateLoanPayload, and ApiError.
+  - `mobile/src/utils/config.ts`: Environment-aware API base URL resolver (LAN IP `10.246.135.16` for physical devices, `10.0.2.2` for emulator, `localhost` for web).
+  - `mobile/src/utils/storage.ts`: Secure JWT token and user profile persistence using `expo-secure-store` with memory fallback.
+  - `mobile/src/utils/format.ts`: Indian Rupee formatting (`₹`), date formatting, and overdue date checking.
+  - `mobile/src/api/client.ts`: Centralized HTTP fetch client with Bearer token injection and normalized AppApiError.
+  - `mobile/src/api/auth.api.ts`: API endpoints for `sendOtpApi` and `verifyOtpApi`.
+  - `mobile/src/api/loan.api.ts`: API endpoints for `fetchLoansApi`, `createLoanApi`, and `markLoanRepaidApi`.
+  - `mobile/src/api/summary.api.ts`: API endpoint for `fetchSummaryApi`.
+  - `mobile/src/components/ErrorBanner.tsx`: Reusable alert banner with retry and dismiss controls.
+  - `mobile/src/components/SummaryCards.tsx`: 2x2 grid displaying Outstanding, Overdue, Total Lent, and Total Repaid balances with alert/settled styling.
+  - `mobile/src/components/LoanCard.tsx`: Individual loan card with friend name, ₹ amount, due date, status badge (Overdue/Pending/Repaid), and "Mark Repaid" action.
+  - `mobile/src/components/AddLoanModal.tsx`: Modal form with friend name, amount, date input, quick date chips (+7d, +14d, +30d), and input validation.
+  - `mobile/src/features/auth/LoginScreen.tsx`: Phone number entry screen with +91 prefix, validation, and mock OTP trigger.
+  - `mobile/src/features/auth/OtpScreen.tsx`: 6-digit verification screen with masked phone display, resend link, and dev terminal hint.
+  - `mobile/src/features/dashboard/DashboardScreen.tsx`: Complete dashboard coordinating summary cards, loan flat list, pull-to-refresh, empty state, loan repayment, and add loan modal.
+  - `mobile/App.tsx`: Root application coordinator managing session restoration, authentication gates, and screen transitions.
+  - `docs/TASKS.md` & `docs/PROGRESS.md`: Updated checklist and execution logs.
+- **Commands run**:
+  - `npm run typecheck` in `mobile/`: Passed with 0 errors (strict TypeScript).
+  - `npm test` in `backend/`: 20/20 tests passed across all suites.
+  - `npm run build` in `backend/`: Clean TypeScript compilation.
+  - `npx prisma validate`: Schema is valid.
+- **Review findings and fixes**: Ensured status badges use both icon/text and color (e.g. `⚠ Overdue`, `✓ Repaid`); implemented immediate optimistic/local list updates on repayment followed by fresh summary refresh; verified error normalization in `client.ts` to surface clear network failure instructions for physical device connectivity.
+- **Next exact action**: Commit Phase 3, push to remote, and execute Phase 4 (final quality audit, packaging, documentation, and delivery).
 
 ## Handoff rule
 At the start of each session, inspect `git status`, this file, `TASKS.md`, and the active phase document. Confirm actual repository state instead of trusting stale checkboxes.
