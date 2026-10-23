@@ -1,7 +1,7 @@
 // Purpose: Integration test suite for phone OTP authentication, rate limits, one-time consumption, and JWT protection.
 // Imported by: vitest test runner (no source importers)
 
-import { describe, it, expect, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import request from 'supertest';
 import express, { Request, Response } from 'express';
 import '../src/types/express.d.ts';
@@ -14,6 +14,10 @@ describe('Auth Integration Tests', () => {
   const testPhone = '+919876543210';
   const secondaryPhone = '+919999988888';
   const testOtp = '123456';
+
+  beforeAll(async () => {
+    await prisma.$connect();
+  });
 
   beforeEach(async () => {
     // Clean up test data for deterministic test runs
@@ -175,6 +179,55 @@ describe('Auth Integration Tests', () => {
 
     expect(res.status).toBe(429);
     expect(res.body.error.code).toBe('OTP_ATTEMPTS_EXCEEDED');
+  });
+
+  // Test OTP cooldown prevents rapid requests
+  it('POST /api/auth/send-otp returns 429 OTP_COOLDOWN when requested within cooldown window', async () => {
+    // First request succeeds
+    const firstRes = await request(app)
+      .post('/api/auth/send-otp')
+      .send({ phone: testPhone });
+    expect(firstRes.status).toBe(200);
+
+    // Immediate second request must trigger cooldown
+    const secondRes = await request(app)
+      .post('/api/auth/send-otp')
+      .send({ phone: testPhone });
+    expect(secondRes.status).toBe(429);
+    expect(secondRes.body.error.code).toBe('OTP_COOLDOWN');
+  });
+
+  // Test legacy OTP authentication cannot bypass configured passwords
+  it('POST /api/auth/verify-otp rejects with 403 PASSWORD_REQUIRED when account has a password', async () => {
+    const { hashPassword } = await import('../src/lib/password.js');
+    const pwdHash = await hashPassword('SecretPass123!');
+
+    // Create user with password
+    await prisma.user.create({
+      data: {
+        phone: testPhone,
+        name: 'Protected User',
+        passwordHash: pwdHash,
+        phoneVerifiedAt: new Date(),
+      },
+    });
+
+    // Seed challenge
+    await prisma.otpChallenge.create({
+      data: {
+        phone: testPhone,
+        codeHash: hashOtp(testPhone, testOtp),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      },
+    });
+
+    // Legacy verify OTP should reject with 403
+    const res = await request(app)
+      .post('/api/auth/verify-otp')
+      .send({ phone: testPhone, otp: testOtp });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('PASSWORD_REQUIRED');
   });
 });
 

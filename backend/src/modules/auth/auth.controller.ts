@@ -38,7 +38,12 @@ export async function sendOtpHandler(req: Request, res: Response) {
   }
 
   const result = await sendOtpChallenge(parseResult.data.phone);
-  return res.status(200).json(result);
+  if (!result.success) {
+    return res.status(result.status).json({
+      error: result.error,
+    });
+  }
+  return res.status(200).json(result.data);
 }
 
 // Handles POST /api/auth/verify-otp (legacy / backward-compatible)
@@ -81,6 +86,11 @@ export async function registerSendOtpHandler(req: Request, res: Response) {
   }
 
   const result = await sendRegisterOtp(parseResult.data.phone);
+  if (!result.success) {
+    return res.status(result.status).json({
+      error: result.error,
+    });
+  }
   return res.status(result.status).json(result.data);
 }
 

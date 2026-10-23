@@ -13,6 +13,13 @@ const MAX_ATTEMPTS = 3;
 // Expiration window for OTP challenges in milliseconds (5 minutes)
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 
+// Cooldown period between OTP generation requests in milliseconds (60 seconds)
+const OTP_COOLDOWN_MS = 60 * 1000;
+
+// Window and maximum requests per window for rate limiting (5 requests per 10 minutes)
+const OTP_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const MAX_OTP_REQUESTS_PER_WINDOW = 5;
+
 // Expiration window for intermediate signup tokens (15 minutes)
 const SIGNUP_TOKEN_EXPIRY = '15m';
 
@@ -21,10 +28,55 @@ interface SignupTokenPayload {
   purpose: 'signup';
 }
 
+export type SendOtpResult =
+  | { success: true; status: 200; data: { message: string; isExistingUser?: boolean } }
+  | { success: false; status: number; error: { code: string; message: string } };
+
 /**
- * Creates a short-lived mock OTP challenge, logs it to server terminal, and saves challenge hash.
+ * Creates a short-lived mock OTP challenge with cooldown and rate limit enforcement.
  */
-export async function sendOtpChallenge(phone: string): Promise<{ message: string; isExistingUser?: boolean }> {
+export async function sendOtpChallenge(phone: string): Promise<SendOtpResult> {
+  // Check cooldown: reject if an OTP challenge was created within OTP_COOLDOWN_MS
+  const recentChallenge = await prisma.otpChallenge.findFirst({
+    where: { phone },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (recentChallenge) {
+    const elapsedMs = Date.now() - recentChallenge.createdAt.getTime();
+    if (elapsedMs < OTP_COOLDOWN_MS) {
+      const waitSeconds = Math.max(1, Math.ceil((OTP_COOLDOWN_MS - elapsedMs) / 1000));
+      return {
+        success: false,
+        status: 429,
+        error: {
+          code: 'OTP_COOLDOWN',
+          message: `Please wait ${waitSeconds} seconds before requesting a new verification code.`,
+        },
+      };
+    }
+  }
+
+  // Check rate limit: maximum requests per window
+  const windowStart = new Date(Date.now() - OTP_RATE_LIMIT_WINDOW_MS);
+  const windowCount = await prisma.otpChallenge.count({
+    where: {
+      phone,
+      createdAt: { gte: windowStart },
+    },
+  });
+
+  if (windowCount >= MAX_OTP_REQUESTS_PER_WINDOW) {
+    return {
+      success: false,
+      status: 429,
+      error: {
+        code: 'RATE_LIMITED',
+        message: 'Too many OTP requests for this phone number. Please wait a few minutes before trying again.',
+      },
+    };
+  }
+
   const otp = generateOtp();
   const codeHash = hashOtp(phone, otp);
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
@@ -38,11 +90,17 @@ export async function sendOtpChallenge(phone: string): Promise<{ message: string
     },
   });
 
-  // Log mock OTP to development terminal for testing (never exposed over HTTP)
-  console.log(`[MOCK OTP] Phone: ${phone} | Code: ${otp} (valid for 5 minutes)`);
+  // Log mock OTP only in non-production environments
+  if (config.NODE_ENV !== 'production') {
+    console.log(`[MOCK OTP] Phone: ${phone} | Code: ${otp} (valid for 5 minutes)`);
+  }
 
   return {
-    message: 'If the phone number is valid, an OTP request was created.',
+    success: true,
+    status: 200,
+    data: {
+      message: 'If the phone number is valid, an OTP request was created.',
+    },
   };
 }
 
@@ -110,8 +168,27 @@ async function verifyOtpInternal(phone: string, otp: string) {
 
 /**
  * Legacy / Backward-compatible OTP verification: creates user if missing and issues JWT.
+ * Prevents password bypass for users who already have a configured password.
  */
 export async function verifyOtpChallenge(phone: string, otp: string) {
+  // Safe handling of legacy OTP authentication:
+  // If user already has a configured password, prevent password bypass via legacy OTP
+  const existingUser = await prisma.user.findUnique({
+    where: { phone },
+    select: { id: true, passwordHash: true },
+  });
+
+  if (existingUser && existingUser.passwordHash) {
+    return {
+      success: false as const,
+      status: 403,
+      error: {
+        code: 'PASSWORD_REQUIRED',
+        message: 'This account is secured with a password. Please log in using your password.',
+      },
+    };
+  }
+
   const verifyResult = await verifyOtpInternal(phone, otp);
   if (!verifyResult.success) {
     return verifyResult;
@@ -167,11 +244,15 @@ export async function sendRegisterOtp(phone: string) {
   }
 
   const result = await sendOtpChallenge(phone);
+  if (!result.success) {
+    return result;
+  }
+
   return {
     success: true as const,
     status: 200,
     data: {
-      ...result,
+      ...result.data,
       isExistingUser: false,
     },
   };
@@ -380,11 +461,26 @@ export async function sendLegacySetupOtp(phone: string) {
     };
   }
 
+  if (user.passwordHash) {
+    return {
+      success: false as const,
+      status: 400,
+      error: {
+        code: 'PASSWORD_ALREADY_SET',
+        message: 'A password is already configured for this account. Please log in using your password.',
+      },
+    };
+  }
+
   const result = await sendOtpChallenge(phone);
+  if (!result.success) {
+    return result;
+  }
+
   return {
     success: true as const,
     status: 200,
-    data: result,
+    data: result.data,
   };
 }
 

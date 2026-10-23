@@ -141,8 +141,10 @@ export async function initiateProfileUpdate(
     expiresIn: '5m',
   });
 
-  // Log mock OTP for development and test execution
-  console.log(`[MOCK OTP - Profile Update] Phone: ${user.phone} | Code: ${otp} (valid for 5 minutes)`);
+  // Log mock OTP only in non-production environments
+  if (config.NODE_ENV !== 'production') {
+    console.log(`[MOCK OTP - Profile Update] Phone: ${user.phone} | Code: ${otp} (valid for 5 minutes)`);
+  }
 
   return {
     success: true as const,
