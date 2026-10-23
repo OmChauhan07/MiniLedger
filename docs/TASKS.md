@@ -56,5 +56,20 @@ Purpose: This is the master execution checklist. Mark tasks only after completin
 - [x] Push to approved remote main branch after tests/review pass.
 - [x] Record final commit, test results, repository URL and recording URL.
 
+## Phase 5 — Borrowed Loans & Direction Awareness
+- [x] Extend Prisma schema with `enum LoanType { LENT, BORROWED }` and non-destructive migration defaulting to `LENT`.
+- [x] Apply schema push/migration preserving all existing user records safely as `LENT`.
+- [x] Update backend schemas and loan service to support loan `type`, direction/search filtering, and `getLoanById`.
+- [x] Separate summary calculations into `totalLent`, `totalBorrowed`, `outstandingLent`, `outstandingBorrowed`, `overdueReceivable`, `overduePayable`.
+- [x] Write backend tests for `LENT` and `BORROWED` creation, filtering, repayments, cross-user isolation, and direction summaries.
+- [x] Update mobile types and API client with query filters and direction attributes.
+- [x] Add Lent/Borrowed selector with dynamic hints to Add Loan modal.
+- [x] Update Loan Card and Loan Details with direction-specific badges ("THEY OWE YOU" vs "YOU OWE THEM"), indicators, and settlement confirmations.
+- [x] Redesign Dashboard summary metrics to distinctly present Lent Outstanding and Borrowed Outstanding.
+- [x] Update All Loans screen with Direction tabs (`All | Lent | Borrowed`), direction-aware status chip counts, and dynamic totals banner.
+- [x] Update Account screen with separate Lent/Borrowed balances, loan counts, and direction-aware CSV export.
+- [x] Run backend test suite (25/25 passed) and mobile TypeScript check (`npx tsc --noEmit` passed with 0 errors).
+- [x] Commit and push changes incrementally to remote repository.
+
 ## Required end-of-phase cycle
 For every phase: code → run tests → fix until all relevant tests pass → code review → improve and repeat if needed → focused commits → push after verification. Resolve merge conflicts deliberately and rerun tests. Never force-push.

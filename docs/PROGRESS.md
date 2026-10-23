@@ -146,7 +146,35 @@ Purpose: Preserve verified project state between agent sessions. Update this fil
   - Summaries: Decimal-safe calculations (total lent, repaid, outstanding, overdue); date-only calendar evaluation.
   - Mobile UI: Overdue items highlighted with alert badges and colors; INR currency display; Add Loan modal with quick dates; immediate repayment update.
   - Security: Zero secrets in git; `.env` strictly ignored; timing-safe OTP verification.
-- **Remote/push status**: Ready to commit and push to `origin/main`.
+### Phase 5 — Borrowed Loans & Direction Awareness (2026-10-23)
+- **Phase/tasks worked on**: End-to-end implementation of LENT and BORROWED loan directions per `docs/FEATURE-LOAN-DIRECTIONS.md`, non-destructive database migration, direction-aware APIs, separate summary metrics, mobile UI enhancements, and full test suite verification.
+- **Files created/changed**:
+  - `backend/prisma/schema.prisma`: Added `enum LoanType { LENT, BORROWED }`, `type LoanType @default(LENT)`, and compound index `[userId, type, isRepaid]`.
+  - `backend/prisma/migrations/20261023150000_add_loan_type/migration.sql`: Non-destructive migration SQL defaulting existing rows to `LENT`.
+  - `backend/src/modules/loans/loan.schema.ts`: Added loan type validation and query filter schemas (`type`, `status`, `search`).
+  - `backend/src/modules/loans/loan.service.ts`: Updated `createLoan`, added query filters to `listLoans`, and implemented `getLoanById`.
+  - `backend/src/modules/loans/loan.controller.ts`: Added query parameters to `listLoansHandler` and added `getLoanHandler`.
+  - `backend/src/modules/loans/loan.routes.ts`: Mounted `GET /api/loans/:id`.
+  - `backend/src/modules/summary/summary.service.ts`: Split summary into `totalLent`, `totalBorrowed`, `outstandingLent`, `outstandingBorrowed`, `overdueReceivable`, `overduePayable`, while preserving backwards-compatible aliases.
+  - `backend/tests/loans.test.ts`: Added test cases for LENT and BORROWED creation, retrieval, filtering, repayment, and separate summary metrics.
+  - `mobile/src/types/index.ts`: Added `LoanDirection = 'LENT' | 'BORROWED'`, updated `Loan`, `CreateLoanPayload`, and `Summary`.
+  - `mobile/src/api/loan.api.ts`: Added query filtering parameters to `fetchLoansApi`.
+  - `mobile/src/components/AddLoanModal.tsx`: Added segmented direction selector ("I've Lent" vs "I've Borrowed") with dynamic counterparty prompts and helper text.
+  - `mobile/src/components/LoanCard.tsx`: Added direction indicator badges ("THEY OWE YOU" vs "YOU OWE THEM"), status labels, and direction-specific button copy.
+  - `mobile/src/components/LoanDetailsModal.tsx`: Added direction banners, dynamic field labels, and direction-specific confirmation dialogues.
+  - `mobile/src/components/SummaryCards.tsx`: Redesigned Bento metrics to clearly separate Lent Outstanding from Borrowed Outstanding.
+  - `mobile/src/features/dashboard/DashboardScreen.tsx`: Updated toast notifications with direction awareness.
+  - `mobile/src/features/loans/AllLoansScreen.tsx`: Added direction tabs (`All | Lent | Borrowed`), direction-filtered status chip counts, and dynamic totals banner.
+  - `mobile/src/features/account/AccountScreen.tsx`: Added separate Lent/Borrowed portfolio breakdown and direction column in CSV export.
+  - `mobile/src/components/Icons.tsx`: Added crisp vector arrow icons (`ArrowUpRightIcon`, `ArrowDownLeftIcon`).
+  - `mobile/App.tsx`: Updated toast handlers and passed loans to AccountScreen.
+- **Commands run**:
+  - `npm test` in `backend/`: 25/25 tests passed across all 4 suites.
+  - `npx tsc --noEmit` in `mobile/`: Strict TypeScript check passed with 0 errors.
+  - `npx prisma db push`: Applied safely; verified 9 existing rows retained `type = 'LENT'`.
+- **Commit hashes**:
+  - `7879a78`: `feat(backend): add LENT and BORROWED loan direction support, query filters, and separate summary metrics`
+- **Remote/push status**: Pushing remaining mobile & docs changes.
 
 ## Handoff rule
 At the start of each session, inspect `git status`, this file, `TASKS.md`, and the active phase document. Confirm actual repository state instead of trusting stale checkboxes.
