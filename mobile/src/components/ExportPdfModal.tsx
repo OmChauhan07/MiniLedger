@@ -81,22 +81,38 @@ export function ExportPdfModal({
         throw new Error('Server did not return a valid PDF statement buffer.');
       }
 
-      // Write base64 to mobile cache directory
-      const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
-      const fileUri = `${cacheDir}${response.filename}`;
+      if (Platform.OS === 'web') {
+        // Trigger direct browser download for web platform
+        if (typeof document !== 'undefined') {
+          const link = document.createElement('a');
+          link.href = `data:application/pdf;base64,${response.base64}`;
+          link.download = response.filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } else {
+        // Write base64 to mobile cache directory
+        const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+        const fileUri = `${cacheDir}${response.filename}`;
 
-      await FileSystem.writeAsStringAsync(fileUri, response.base64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      // Invoke native device share dialog
-      const isShareAvailable = await Sharing.isAvailableAsync();
-      if (isShareAvailable) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'application/pdf',
-          dialogTitle: 'MiniLedger Personal Loan Statement',
-          UTI: 'com.adobe.pdf',
+        await FileSystem.writeAsStringAsync(fileUri, response.base64, {
+          encoding: FileSystem.EncodingType.Base64,
         });
+
+        // Safely invoke native device share dialog without failing if dismissed
+        try {
+          const isShareAvailable = await Sharing.isAvailableAsync();
+          if (isShareAvailable) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: 'application/pdf',
+              dialogTitle: 'MiniLedger Personal Loan Statement',
+              UTI: 'com.adobe.pdf',
+            });
+          }
+        } catch (shareErr) {
+          console.warn('Native sharing dialog was dismissed or encountered an issue:', shareErr);
+        }
       }
 
       onExportSuccess(response.filename, response.recordCount);

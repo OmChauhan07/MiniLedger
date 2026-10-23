@@ -24,14 +24,17 @@ export async function getStoredToken(): Promise<string | null> {
 
 // Persists the JWT authentication token securely
 export async function setStoredToken(token: string): Promise<void> {
-  memoryToken = token;
   if (Platform.OS === 'web') {
+    memoryToken = token;
     return;
   }
   try {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
+    memoryToken = token;
   } catch (err) {
-    console.warn('Failed to save token to SecureStore:', err);
+    memoryToken = null;
+    console.error('Failed to securely persist token to SecureStore:', err);
+    throw new Error('Failed to save session token to secure device storage');
   }
 }
 
@@ -67,14 +70,17 @@ export async function getStoredUser(): Promise<any | null> {
 // Persists the user profile securely
 export async function setStoredUser(user: any): Promise<void> {
   const serialized = JSON.stringify(user);
-  memoryUser = serialized;
   if (Platform.OS === 'web') {
+    memoryUser = serialized;
     return;
   }
   try {
     await SecureStore.setItemAsync(USER_KEY, serialized);
+    memoryUser = serialized;
   } catch (err) {
-    console.warn('Failed to save user to SecureStore:', err);
+    memoryUser = null;
+    console.error('Failed to securely persist user profile to SecureStore:', err);
+    throw new Error('Failed to save user profile to secure device storage');
   }
 }
 

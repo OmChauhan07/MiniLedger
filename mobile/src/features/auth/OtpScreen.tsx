@@ -15,7 +15,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { verifyOtpApi, sendOtpApi } from '../../api/auth.api';
-import { setStoredToken, setStoredUser } from '../../utils/storage';
 import { maskPhoneNumber } from '../../utils/format';
 import { User } from '../../types/index';
 import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
@@ -76,8 +75,6 @@ export function OtpScreen({ phone, onVerificationSuccess, onChangePhone }: OtpSc
 
     try {
       const response = await verifyOtpApi(phone, otp);
-      await setStoredToken(response.token);
-      await setStoredUser(response.user);
       setIsLoading(false);
       onVerificationSuccess(response.token, response.user);
     } catch (err: any) {

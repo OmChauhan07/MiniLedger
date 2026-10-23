@@ -2,7 +2,7 @@
 // Imported by: index.ts (entry point - no direct source importers)
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, View, ActivityIndicator, Text, Platform, StatusBar as RNStatusBar } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, Text, Platform, StatusBar as RNStatusBar, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { User, Loan, Summary, CreateLoanPayload, LoanDirection } from './src/types/index';
 import { getStoredToken, getStoredUser, setStoredToken, setStoredUser, clearStoredToken, clearStoredUser } from './src/utils/storage';
@@ -95,15 +95,23 @@ export default function App() {
   }, [token, loadLedgerData]);
 
   const handleAuthSuccess = async (authToken: string, authUser: User) => {
-    setToken(authToken);
-    setUser(authUser);
-    setPendingPhone(null);
-    setCurrentTab('dashboard');
     try {
       await setStoredToken(authToken);
       await setStoredUser(authUser);
-    } catch (err) {
-      console.warn('Failed to persist session:', err);
+      setToken(authToken);
+      setUser(authUser);
+      setPendingPhone(null);
+      setCurrentTab('dashboard');
+    } catch (err: any) {
+      console.error('Session persistence failed:', err);
+      await clearStoredToken();
+      await clearStoredUser();
+      setToken(null);
+      setUser(null);
+      Alert.alert(
+        'Session Storage Error',
+        'Could not securely save your session to device storage. Please check device security settings and try logging in again.'
+      );
     }
   };
 
@@ -124,6 +132,10 @@ export default function App() {
       await setStoredUser(updatedUser);
     } catch (err) {
       console.warn('Failed to persist updated user:', err);
+      Alert.alert(
+        'Storage Warning',
+        'Profile updated on server, but local cached profile could not be refreshed in secure storage.'
+      );
     }
   };
 
