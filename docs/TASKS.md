@@ -13,14 +13,14 @@ Purpose: This is the master execution checklist. Mark tasks only after completin
 - [x] Review, test, commit in small logical units, and push only if remote is configured and approved.
 
 ## Phase 1 — Database and authentication
-- [ ] Add Prisma and PostgreSQL configuration.
-- [ ] Define User and Loan models.
-- [ ] Run migration and generate Prisma Client.
-- [ ] Add phone normalization and validation.
-- [ ] Implement mock OTP generation, server logging, expiry and attempt limit.
-- [ ] Verify OTP, invalidate after success and issue JWT.
-- [ ] Add auth middleware and protected-route tests.
-- [ ] Verify OTP is never returned by API and secrets are not committed.
+- [x] Add Prisma and PostgreSQL configuration.
+- [x] Define User and Loan models.
+- [x] Run migration and generate Prisma Client.
+- [x] Add phone normalization and validation.
+- [x] Implement mock OTP generation, server logging, expiry and attempt limit.
+- [x] Verify OTP, invalidate after success and issue JWT.
+- [x] Add auth middleware and protected-route tests.
+- [x] Verify OTP is never returned by API and secrets are not committed.
 
 ## Phase 2 — Loan and summary APIs
 - [ ] Create validated loan endpoint.

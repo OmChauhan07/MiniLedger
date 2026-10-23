@@ -5,8 +5,8 @@ Purpose: Preserve verified project state between agent sessions. Update this fil
 ## Current status
 - [x] Repository initialized
 - [x] Backend health endpoint
-- [ ] Database schema/migrations
-- [ ] Mock OTP + JWT
+- [x] Database schema/migrations
+- [x] Mock OTP + JWT
 - [ ] Loan APIs + summary
 - [ ] Mobile login/dashboard/forms
 - [ ] Tests and code review
@@ -41,9 +41,34 @@ Purpose: Preserve verified project state between agent sessions. Update this fil
   - `362c666`: `chore: configure repository gitignore and add root README`
   - `194255f`: `feat(backend): initialize Express TypeScript backend with health endpoint`
   - `d72326f`: `feat(mobile): initialize Expo React Native TypeScript project`
+  - `33d0015`: `docs: record Phase 0 verification and commit hashes in PROGRESS.md`
 - **Remote/push status**: Remote `origin` points to `https://github.com/OmChauhan07/MiniLedger.git`.
 - **Known limitations**: Phase 0 scope only; database models, mock OTP, loan APIs, and mobile UI screens are scheduled for Phase 1–3.
-- **Next exact action**: Begin Phase 1 (Database and Authentication) in a separate run.
+
+### Phase 1 — Database and Authentication (2026-10-23)
+- **Phase/tasks worked on**: PostgreSQL, Prisma models, migrations, phone validation/normalization, development mock OTP flow, JWT issue, and JWT auth middleware.
+- **Files created/changed**:
+  - `backend/prisma/schema.prisma`: User, Loan, and OtpChallenge models.
+  - `backend/prisma/migrations/20261023000000_init/migration.sql`: Initial migration SQL.
+  - `backend/src/lib/prisma.ts`: PrismaClient singleton.
+  - `backend/src/lib/crypto.ts`: Cryptographic OTP generator, SHA-256 hasher, and timing-safe equality verifier.
+  - `backend/src/modules/auth/phone.utils.ts`: Phone normalization and E.164 validation.
+  - `backend/src/modules/auth/auth.schema.ts`: Zod validation schemas for send-otp and verify-otp.
+  - `backend/src/modules/auth/auth.service.ts`: OTP challenge lifecycle, attempt limits, user upsert, and JWT signing.
+  - `backend/src/modules/auth/auth.controller.ts`: Route handlers for /api/auth endpoints.
+  - `backend/src/modules/auth/auth.routes.ts`: Router mounting /send-otp and /verify-otp.
+  - `backend/src/middleware/auth.middleware.ts`: Bearer token validation and req.user attachment.
+  - `backend/src/types/express.d.ts`: Request user type declaration.
+  - `backend/src/config/env.ts`: DATABASE_URL and JWT_SECRET configuration.
+  - `backend/tests/auth.test.ts`: 10 integration tests covering OTP lifecycle, invalid inputs, expiry, reuse prevention, attempt lockout, and JWT middleware.
+- **Commands run**:
+  - `npx prisma validate`: Passed.
+  - `npx prisma db push`: Synchronized schema with Neon PostgreSQL; generated Prisma Client.
+  - `npm test`: Passed (12/12 tests passing across health and auth suites).
+  - `npm run build`: Passed (clean compilation to dist/).
+- **Review findings and fixes**: Removed foreign key from OtpChallenge to User so new phone numbers can request OTPs before account creation; set Vitest timeout to 20s to accommodate cloud DB roundtrips; verified OTP is never returned in API response.
+- **Remote/push status**: Clean, ready to commit and push.
+- **Next exact action**: Begin Phase 2 (Loan APIs and Summary).
 
 ## Handoff rule
 At the start of each session, inspect `git status`, this file, `TASKS.md`, and the active phase document. Confirm actual repository state instead of trusting stale checkboxes.

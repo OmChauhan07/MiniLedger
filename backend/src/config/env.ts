@@ -1,5 +1,5 @@
 // Purpose: Validates environment variables using Zod to ensure runtime type-safety and safe fallbacks.
-// Imported by: src/index.ts, src/app.ts
+// Imported by: src/index.ts, src/app.ts, src/lib/prisma.ts, src/modules/auth/auth.service.ts, src/middleware/auth.middleware.ts
 
 import dotenv from 'dotenv';
 import { z } from 'zod';
@@ -17,6 +17,16 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
     .default('development'),
+  DATABASE_URL: z
+    .string()
+    .min(1, 'DATABASE_URL is required'),
+  JWT_SECRET: z
+    .string()
+    .min(16, 'JWT_SECRET must be at least 16 characters long')
+    .default('miniledger-super-secure-jwt-secret-key-32-chars-min'),
+  JWT_EXPIRES_IN: z
+    .string()
+    .default('7d'),
 });
 
 // Parse and validate the environment configuration safely
