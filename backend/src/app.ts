@@ -19,7 +19,7 @@ app.use(cors());
 // Parse incoming requests with JSON payloads
 app.use(express.json());
 
-// Mount health routes at root (e.g., Render /health) and under /api/health
+// Mount health routes at root and under /api/health
 app.use(healthRouter);
 app.use('/api', healthRouter);
 app.use('/api/auth', authRouter);

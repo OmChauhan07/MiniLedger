@@ -82,7 +82,6 @@ MiniLedger/
 │   │   └── theme/            # Theme tokens, colors, and shadows
 │   ├── App.tsx               # Root session coordinator and tab navigation
 │   ├── app.json              # Expo application configuration (com.credsetu.miniledger)
-│   ├── eas.json              # EAS Build configuration
 │   ├── .env.example          # Mobile environment template (EXPO_PUBLIC_API_URL)
 │   └── package.json          # Dependencies and scripts
 └── README.md                 # Project documentation and quickstart
@@ -100,6 +99,40 @@ MiniLedger/
   - Android phone with the [Expo Go](https://play.google.com/store/apps/details?id=host.exp.exponent) app installed (connected to the same Wi-Fi), OR
   - Android Studio Virtual Device (Emulator).
 
+### Database Configuration
+
+MiniLedger supports both **local PostgreSQL** and **Neon PostgreSQL**.
+
+Configure the `DATABASE_URL` variable in your backend environment file (`backend/.env`) with the connection string for your chosen database:
+
+- **Option 1: Neon PostgreSQL**  
+  Use your Neon PostgreSQL connection string as `DATABASE_URL`:
+  ```env
+  DATABASE_URL="postgresql://neondb_owner:<password>@<endpoint>-pooler.<region>.aws.neon.tech/neondb?sslmode=require"
+  ```
+
+- **Option 2: Local PostgreSQL**  
+  If you prefer local PostgreSQL instead of Neon, create a database locally and set `DATABASE_URL` to your local connection string. For example:
+  ```env
+  DATABASE_URL="postgresql://postgres:your_password@localhost:5432/miniledger"
+  ```
+  *(Replace `postgres`, `your_password`, and `miniledger` with your actual PostgreSQL username, password, and database name).*
+
+#### Initialize the Database Schema
+
+After configuring the connection string, run the database setup command from the `backend/` directory using the project's existing Prisma configuration:
+
+- **Apply existing Prisma migrations**:
+  ```bash
+  npx prisma migrate deploy
+  ```
+- **Or synchronize the Prisma schema directly**:
+  ```bash
+  npx prisma db push
+  ```
+
+Ensure the selected PostgreSQL server is running and the target database exists before initializing the schema. Never commit real database credentials to Git.
+
 ---
 
 ### Step 1: Find Your Computer's LAN IP Address
@@ -110,7 +143,7 @@ To allow your physical phone on Wi-Fi to reach your backend server, identify you
   ```powershell
   ipconfig
   ```
-  Look for your active Wi-Fi adapter (e.g. `Wireless LAN adapter Wi-Fi`) and copy the **IPv4 Address** (e.g. `10.246.135.16` or `192.168.1.x`).
+  Look for your active Wi-Fi adapter (e.g. `Wireless LAN adapter Wi-Fi`) and copy the **IPv4 Address** (e.g. `192.168.1.100` or `10.0.0.x`).
 - **macOS / Linux**: Run `ifconfig` or `ip a` and locate your Wi-Fi interface address (`en0` / `wlan0`).
 
 ---
@@ -127,10 +160,12 @@ npm install
 
 # 2. Configure environment
 cp .env.example .env
-# Edit .env and ensure DATABASE_URL, JWT_SECRET, and Object Storage credentials are set
+# Edit .env to set DATABASE_URL (see Database Configuration above) and JWT_SECRET (>= 32 characters)
+# (Note: AWS/Neon S3 credentials are only required if testing the optional profile avatar upload feature)
 
-# 3. Synchronize database schema and generate Prisma Client
+# 3. Initialize database schema
 npx prisma db push
+# (or: npx prisma migrate deploy)
 
 # 4. Start the development server (listens on 0.0.0.0:4000)
 npm run dev
@@ -163,13 +198,23 @@ npm install
 cp .env.example .env
 ```
 
-Open `mobile/.env` and set `EXPO_PUBLIC_API_URL` to your computer's LAN IP address on port `4000`:
-```env
-EXPO_PUBLIC_API_URL="http://<YOUR_LAN_IP>:4000/api"
-```
-*(Example: `EXPO_PUBLIC_API_URL="http://10.246.135.16:4000/api"`)*
+Open `mobile/.env` and set `EXPO_PUBLIC_API_URL` based on how you are running the app:
 
-> **Note for Emulators**: If testing on an Android Emulator instead of a physical phone, you can alternatively use `http://10.0.2.2:4000/api`.
+- **Option A (Physical Phone over Wi-Fi)**:
+  ```env
+  EXPO_PUBLIC_API_URL="http://<YOUR_LAN_IP>:4000/api"
+  ```
+  *(Example: `EXPO_PUBLIC_API_URL="http://192.168.1.100:4000/api"`)*
+
+- **Option B (Android Studio Emulator)**:
+  ```env
+  EXPO_PUBLIC_API_URL="http://10.0.2.2:4000/api"
+  ```
+
+- **Option C (iOS Simulator / Web)**:
+  ```env
+  EXPO_PUBLIC_API_URL="http://localhost:4000/api"
+  ```
 
 Now start the Expo development server with a **cleared cache** (`-c`) so it loads the updated environment variable:
 
