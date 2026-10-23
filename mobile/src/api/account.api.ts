@@ -21,7 +21,7 @@ export interface VerifyProfileUpdateResponse {
  * Fetches current authenticated user profile.
  */
 export async function fetchAccountProfileApi(): Promise<{ user: User }> {
-  return apiRequest<{ user: User }>('/api/account', {
+  return apiRequest<{ user: User }>('/account', {
     method: 'GET',
   });
 }
@@ -32,8 +32,9 @@ export async function fetchAccountProfileApi(): Promise<{ user: User }> {
 export async function updateAccountProfileApi(payload: {
   name?: string;
   email?: string | null;
-}): Promise<InitiateProfileUpdateResponse> {
-  return apiRequest<InitiateProfileUpdateResponse>('/api/account', {
+  }
+): Promise<InitiateProfileUpdateResponse> {
+  return apiRequest<InitiateProfileUpdateResponse>('/account', {
     method: 'PATCH',
     body: payload,
   });
@@ -46,7 +47,7 @@ export async function verifyAccountUpdateApi(payload: {
   updateToken: string;
   otp: string;
 }): Promise<VerifyProfileUpdateResponse> {
-  return apiRequest<VerifyProfileUpdateResponse>('/api/account/verify-update', {
+  return apiRequest<VerifyProfileUpdateResponse>('/account/verify-update', {
     method: 'POST',
     body: payload,
   });
@@ -70,7 +71,7 @@ export async function uploadAvatarApi(
   imageBase64: string,
   mimeType: string = 'image/jpeg'
 ): Promise<UploadAvatarResponse> {
-  return apiRequest<UploadAvatarResponse>('/api/account/avatar', {
+  return apiRequest<UploadAvatarResponse>('/account/avatar', {
     method: 'POST',
     body: {
       imageBase64,
@@ -83,7 +84,7 @@ export async function uploadAvatarApi(
  * Removes the authenticated user's profile avatar picture.
  */
 export async function deleteAvatarApi(): Promise<DeleteAvatarResponse> {
-  return apiRequest<DeleteAvatarResponse>('/api/account/avatar', {
+  return apiRequest<DeleteAvatarResponse>('/account/avatar', {
     method: 'DELETE',
   });
 }

@@ -17,6 +17,24 @@ export class AppApiError extends Error {
   }
 }
 
+/**
+ * Normalizes base URL and relative endpoint path into a safe, canonical URL.
+ * Guarantees a single '/api' prefix and prevents duplicate '/api/api' or double slashes.
+ */
+export function buildApiUrl(baseUrl: string, path: string): string {
+  const trimmedBase = baseUrl.trim().replace(/\/+$/, '');
+  const originBase = trimmedBase.endsWith('/api') ? trimmedBase.slice(0, -4) : trimmedBase;
+
+  const trimmedPath = path.trim();
+  const pathWithSlash = trimmedPath.startsWith('/') ? trimmedPath : `/${trimmedPath}`;
+
+  const normalizedPath = (pathWithSlash === '/api' || pathWithSlash.startsWith('/api/'))
+    ? pathWithSlash
+    : `/api${pathWithSlash}`;
+
+  return `${originBase}${normalizedPath}`;
+}
+
 // Executes an HTTP request against the configured backend with optional authentication
 export async function apiRequest<T>(
   path: string,
@@ -27,7 +45,7 @@ export async function apiRequest<T>(
   } = {}
 ): Promise<T> {
   const baseUrl = getApiBaseUrl();
-  const url = `${baseUrl}${path}`;
+  const url = buildApiUrl(baseUrl, path);
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',

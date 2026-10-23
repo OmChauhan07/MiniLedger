@@ -34,7 +34,7 @@ export interface ExportLedgerPdfResponse {
 export async function exportLedgerPdfApi(
   options: ExportLedgerPdfOptions = {}
 ): Promise<ExportLedgerPdfResponse> {
-  return apiRequest<ExportLedgerPdfResponse>('/api/ledger/export/pdf', {
+  return apiRequest<ExportLedgerPdfResponse>('/ledger/export/pdf', {
     method: 'POST',
     body: {
       ...options,
