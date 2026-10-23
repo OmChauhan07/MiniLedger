@@ -22,7 +22,7 @@ import { LoanCard } from '../../components/LoanCard';
 import { AddLoanModal } from '../../components/AddLoanModal';
 import { LoanDetailsModal } from '../../components/LoanDetailsModal';
 import { Toast } from '../../components/Toast';
-import { Theme } from '../../theme/index';
+import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 import { formatCurrencyCompact, getInitials } from '../../utils/format';
 
 interface DashboardScreenProps {
@@ -176,6 +176,7 @@ export function DashboardScreen({
         </View>
       ) : (
         <FlatList
+          style={styles.mainContainer}
           data={displayLoans}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
@@ -331,6 +332,11 @@ export function DashboardScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+    paddingTop: STATUS_BAR_HEIGHT,
+  },
+  mainContainer: {
+    flex: 1,
     backgroundColor: Theme.colors.background,
   },
   headerBar: {
@@ -408,7 +414,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 40,
+    paddingBottom: 96,
   },
   listHeaderWrapper: {
     marginBottom: 6,

@@ -2,7 +2,7 @@
 // Imported by: index.ts (entry point - no direct source importers)
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, View, ActivityIndicator, Text } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, Text, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { User, Loan, Summary, CreateLoanPayload } from './src/types/index';
 import { getStoredToken, getStoredUser, clearStoredToken, clearStoredUser } from './src/utils/storage';
@@ -38,6 +38,10 @@ export default function App() {
 
   // Restores saved session from secure storage
   useEffect(() => {
+    if (Platform.OS === 'android') {
+      (RNStatusBar as any).setTranslucent?.(true);
+      (RNStatusBar as any).setBackgroundColor?.('transparent', true);
+    }
     async function restoreSession() {
       try {
         const storedToken = await getStoredToken();

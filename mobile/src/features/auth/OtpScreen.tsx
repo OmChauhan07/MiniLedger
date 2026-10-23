@@ -18,7 +18,7 @@ import { verifyOtpApi, sendOtpApi } from '../../api/auth.api';
 import { setStoredToken, setStoredUser } from '../../utils/storage';
 import { maskPhoneNumber } from '../../utils/format';
 import { User } from '../../types/index';
-import { Theme } from '../../theme/index';
+import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 
 interface OtpScreenProps {
   phone: string;
@@ -315,6 +315,7 @@ const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
     backgroundColor: Theme.colors.background,
+    paddingTop: STATUS_BAR_HEIGHT,
   },
   scrollContent: {
     flexGrow: 1,

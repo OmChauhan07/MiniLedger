@@ -15,7 +15,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { sendOtpApi } from '../../api/auth.api';
-import { Theme } from '../../theme/index';
+import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 
 interface LoginScreenProps {
   onOtpSent: (normalizedPhone: string) => void;
@@ -253,6 +253,7 @@ const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
     backgroundColor: Theme.colors.background,
+    paddingTop: STATUS_BAR_HEIGHT,
   },
   scrollContent: {
     flexGrow: 1,

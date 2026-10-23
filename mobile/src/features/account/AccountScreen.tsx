@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { User, Summary } from '../../types/index';
-import { Theme } from '../../theme/index';
+import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 import { formatCurrencyCompact } from '../../utils/format';
 
 interface AccountScreenProps {
@@ -74,6 +74,7 @@ export function AccountScreen({
       </View>
 
       <ScrollView
+        style={styles.mainContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -233,6 +234,11 @@ export function AccountScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+    paddingTop: STATUS_BAR_HEIGHT,
+  },
+  mainContainer: {
+    flex: 1,
     backgroundColor: Theme.colors.background,
   },
   topHeader: {
@@ -264,7 +270,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 40,
+    paddingBottom: 96,
   },
   profileCard: {
     backgroundColor: Theme.colors.surfaceCard,

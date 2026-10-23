@@ -17,7 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Loan, Summary } from '../../types/index';
 import { LoanCard } from '../../components/LoanCard';
 import { LoanDetailsModal } from '../../components/LoanDetailsModal';
-import { Theme } from '../../theme/index';
+import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 import { formatCurrencyCompact, checkIsOverdue } from '../../utils/format';
 
 type FilterType = 'all' | 'pending' | 'overdue' | 'repaid';
@@ -119,6 +119,7 @@ export function AllLoansScreen({
       </View>
 
       <FlatList
+        style={styles.mainContainer}
         data={filteredLoans}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
@@ -331,6 +332,11 @@ export function AllLoansScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+    paddingTop: STATUS_BAR_HEIGHT,
+  },
+  mainContainer: {
+    flex: 1,
     backgroundColor: Theme.colors.background,
   },
   topHeader: {
@@ -377,7 +383,7 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 40,
+    paddingBottom: 96,
   },
   headerSection: {
     marginBottom: 8,
