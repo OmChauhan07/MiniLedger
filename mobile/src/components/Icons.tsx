@@ -638,4 +638,82 @@ export function FilePdfIcon({ size = 16, color = '#0F172A', strokeWidth = 1.8 }:
   );
 }
 
+// 23. Camera Icon for Avatar / Image Picker
+export function CameraIcon({ size = 16, color = '#0F172A', strokeWidth = 1.6 }: IconProps) {
+  return (
+    <View style={{ width: size, height: size * 0.8, alignItems: 'center', justifyContent: 'center' }}>
+      {/* Top flash notch */}
+      <View
+        style={{
+          width: size * 0.32,
+          height: size * 0.16,
+          backgroundColor: color,
+          borderTopLeftRadius: 2,
+          borderTopRightRadius: 2,
+          marginBottom: -1,
+        }}
+      />
+      {/* Camera Body */}
+      <View
+        style={{
+          width: '100%',
+          height: size * 0.68,
+          borderRadius: 4,
+          borderWidth: strokeWidth,
+          borderColor: color,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {/* Lens */}
+        <View
+          style={{
+            width: size * 0.38,
+            height: size * 0.38,
+            borderRadius: (size * 0.38) / 2,
+            borderWidth: strokeWidth,
+            borderColor: color,
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
+// 24. Trash / Remove Icon
+export function TrashIcon({ size = 16, color = '#DC2626', strokeWidth = 1.6 }: IconProps) {
+  return (
+    <View style={{ width: size * 0.85, height: size, alignItems: 'center' }}>
+      {/* Top lid bar */}
+      <View
+        style={{
+          width: '100%',
+          height: strokeWidth,
+          backgroundColor: color,
+          borderRadius: 1,
+          marginBottom: 2,
+        }}
+      />
+      {/* Bin Body */}
+      <View
+        style={{
+          width: '78%',
+          height: size * 0.72,
+          borderWidth: strokeWidth,
+          borderTopWidth: 0,
+          borderColor: color,
+          borderBottomLeftRadius: 3,
+          borderBottomRightRadius: 3,
+          justifyContent: 'space-evenly',
+          flexDirection: 'row',
+          paddingVertical: 2,
+        }}
+      >
+        <View style={{ width: strokeWidth, height: '70%', backgroundColor: color }} />
+        <View style={{ width: strokeWidth, height: '70%', backgroundColor: color }} />
+      </View>
+    </View>
+  );
+}
+
 

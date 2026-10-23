@@ -1,11 +1,19 @@
 // Purpose: Business logic for user profile retrieval, OTP-protected profile updates, and challenge verification.
 // Imported by: src/modules/account/account.controller.ts, tests/account-and-pdf.test.ts
 
+import { randomBytes } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { generateOtp, hashOtp, verifyOtpHash } from '../../lib/crypto.js';
 import { config } from '../../config/env.js';
+import {
+  uploadObject,
+  deleteBucketObjectSafely,
+  getSignedAvatarUrl,
+  detectImageFormat,
+  getObjectWithMetadata,
+} from '../../lib/storage.js';
 
 const OTP_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 const OTP_COOLDOWN_MS = 60 * 1000; // 60 seconds
@@ -52,6 +60,7 @@ export async function getAccountProfile(userId: string) {
       name: true,
       email: true,
       phoneVerifiedAt: true,
+      avatarKey: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -68,10 +77,31 @@ export async function getAccountProfile(userId: string) {
     };
   }
 
+  let avatarUrl: string | null = null;
+  if (user.avatarKey) {
+    try {
+      avatarUrl = await getSignedAvatarUrl(user.avatarKey);
+    } catch {
+      avatarUrl = `/api/account/avatar`;
+    }
+  }
+
   return {
     success: true as const,
     status: 200,
-    data: { user },
+    data: {
+      user: {
+        id: user.id,
+        phone: user.phone,
+        name: user.name,
+        email: user.email,
+        phoneVerifiedAt: user.phoneVerifiedAt,
+        avatarUrl,
+        hasAvatar: Boolean(user.avatarKey),
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    },
   };
 }
 
@@ -327,18 +357,38 @@ export async function verifyAndApplyProfileUpdate(
           name: true,
           email: true,
           phoneVerifiedAt: true,
+          avatarKey: true,
           createdAt: true,
           updatedAt: true,
         },
       });
     });
 
+    let avatarUrl: string | null = null;
+    if (updatedUser.avatarKey) {
+      try {
+        avatarUrl = await getSignedAvatarUrl(updatedUser.avatarKey);
+      } catch {
+        avatarUrl = `/api/account/avatar`;
+      }
+    }
+
     return {
       success: true as const,
       status: 200,
       data: {
         message: 'Profile updated successfully.',
-        user: updatedUser,
+        user: {
+          id: updatedUser.id,
+          phone: updatedUser.phone,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          phoneVerifiedAt: updatedUser.phoneVerifiedAt,
+          avatarUrl,
+          hasAvatar: Boolean(updatedUser.avatarKey),
+          createdAt: updatedUser.createdAt,
+          updatedAt: updatedUser.updatedAt,
+        },
       },
     };
   } catch (err: any) {
@@ -353,5 +403,189 @@ export async function verifyAndApplyProfileUpdate(
       };
     }
     throw err;
+  }
+}
+
+/**
+ * Uploads, validates, and sets a user's profile avatar picture.
+ * Validates cryptographic magic bytes to enforce JPEG, PNG, or WebP.
+ * Deletes previous avatar safely after the database update succeeds.
+ */
+export async function uploadUserAvatar(
+  userId: string,
+  buffer: Buffer,
+  _mimeType?: string
+) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, avatarKey: true },
+  });
+
+  if (!user) {
+    return {
+      success: false as const,
+      status: 404,
+      error: { code: 'USER_NOT_FOUND', message: 'User not found.' },
+    };
+  }
+
+  // Detect genuine image format via magic bytes
+  const detectedFormat = detectImageFormat(buffer);
+  if (!detectedFormat) {
+    return {
+      success: false as const,
+      status: 400,
+      error: {
+        code: 'INVALID_IMAGE_FORMAT',
+        message: 'Unsupported or corrupted image file. Please provide a valid JPEG, PNG, or WebP image.',
+      },
+    };
+  }
+
+  const ext = detectedFormat === 'jpeg' ? 'jpg' : detectedFormat;
+  const newKey = `avatars/${userId}/${Date.now()}-${randomBytes(8).toString('hex')}.${ext}`;
+  const contentType = `image/${detectedFormat}`;
+
+  try {
+    // 1. Upload new object to Neon Object Storage bucket
+    await uploadObject(newKey, buffer, contentType);
+
+    // 2. Update user avatarKey in database
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { avatarKey: newKey },
+      select: {
+        id: true,
+        phone: true,
+        name: true,
+        email: true,
+        phoneVerifiedAt: true,
+        avatarKey: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // 3. Delete old object from bucket if it exists and was replaced
+    if (user.avatarKey && user.avatarKey !== newKey) {
+      deleteBucketObjectSafely(user.avatarKey).catch(() => {});
+    }
+
+    let avatarUrl: string | null = null;
+    try {
+      avatarUrl = await getSignedAvatarUrl(newKey);
+    } catch {
+      avatarUrl = `/api/account/avatar`;
+    }
+
+    return {
+      success: true as const,
+      status: 200,
+      data: {
+        message: 'Profile image uploaded successfully.',
+        avatarUrl,
+        user: {
+          id: updatedUser.id,
+          phone: updatedUser.phone,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          phoneVerifiedAt: updatedUser.phoneVerifiedAt,
+          avatarUrl,
+          hasAvatar: true,
+          createdAt: updatedUser.createdAt,
+          updatedAt: updatedUser.updatedAt,
+        },
+      },
+    };
+  } catch (err: any) {
+    // Clean up newly uploaded orphaned object if DB update threw an error
+    await deleteBucketObjectSafely(newKey).catch(() => {});
+    console.error('Avatar upload failed:', err.message);
+    return {
+      success: false as const,
+      status: 500,
+      error: {
+        code: 'STORAGE_ERROR',
+        message: 'Failed to upload profile image to storage.',
+      },
+    };
+  }
+}
+
+/**
+ * Removes the authenticated user's profile avatar and safely deletes it from storage.
+ */
+export async function deleteUserAvatar(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      phone: true,
+      name: true,
+      email: true,
+      phoneVerifiedAt: true,
+      avatarKey: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!user) {
+    return {
+      success: false as const,
+      status: 404,
+      error: { code: 'USER_NOT_FOUND', message: 'User not found.' },
+    };
+  }
+
+  if (user.avatarKey) {
+    const oldKey = user.avatarKey;
+    // Update DB first
+    await prisma.user.update({
+      where: { id: userId },
+      data: { avatarKey: null },
+    });
+    // Delete from bucket safely
+    await deleteBucketObjectSafely(oldKey);
+  }
+
+  return {
+    success: true as const,
+    status: 200,
+    data: {
+      message: 'Profile photo removed.',
+      user: {
+        id: user.id,
+        phone: user.phone,
+        name: user.name,
+        email: user.email,
+        phoneVerifiedAt: user.phoneVerifiedAt,
+        avatarUrl: null,
+        hasAvatar: false,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    },
+  };
+}
+
+/**
+ * Fetches raw avatar buffer and content type for direct streaming delivery.
+ */
+export async function getUserAvatarFile(userId: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { avatarKey: true },
+  });
+
+  if (!user || !user.avatarKey) {
+    return null;
+  }
+
+  try {
+    return await getObjectWithMetadata(user.avatarKey);
+  } catch (err: any) {
+    console.warn(`Could not load avatar for user ${userId}:`, err.message);
+    return null;
   }
 }

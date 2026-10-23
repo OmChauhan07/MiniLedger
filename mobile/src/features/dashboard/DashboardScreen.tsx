@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
   useWindowDimensions,
+  Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { User, Loan, Summary, CreateLoanPayload } from '../../types/index';
@@ -181,7 +182,15 @@ export function DashboardScreen({
           style={styles.profileAvatarButton}
           activeOpacity={0.8}
         >
-          <Text style={styles.profileAvatarText}>{userInitial}</Text>
+          {user.avatarUrl ? (
+            <Image
+              source={{ uri: user.avatarUrl }}
+              style={styles.profileAvatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.profileAvatarText}>{userInitial}</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -438,6 +447,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  profileAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 18,
   },
   loadingContainer: {
     flex: 1,

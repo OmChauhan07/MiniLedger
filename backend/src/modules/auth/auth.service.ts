@@ -6,6 +6,35 @@ import { prisma } from '../../lib/prisma.js';
 import { generateOtp, hashOtp, verifyOtpHash } from '../../lib/crypto.js';
 import { hashPassword, verifyPassword } from '../../lib/password.js';
 import { config } from '../../config/env.js';
+import { getSignedAvatarUrl } from '../../lib/storage.js';
+
+export async function formatAuthUser(user: {
+  id: string;
+  phone: string;
+  name: string | null;
+  email: string | null;
+  phoneVerifiedAt: Date | null;
+  avatarKey?: string | null;
+}) {
+  let avatarUrl: string | null = null;
+  if (user.avatarKey) {
+    try {
+      avatarUrl = await getSignedAvatarUrl(user.avatarKey);
+    } catch {
+      avatarUrl = `/api/account/avatar`;
+    }
+  }
+
+  return {
+    id: user.id,
+    phone: user.phone,
+    name: user.name,
+    email: user.email,
+    phoneVerifiedAt: user.phoneVerifiedAt,
+    avatarUrl,
+    hasAvatar: Boolean(user.avatarKey),
+  };
+}
 
 // Maximum allowed verification attempts before challenge lockout
 const MAX_ATTEMPTS = 3;
@@ -211,13 +240,7 @@ export async function verifyOtpChallenge(phone: string, otp: string) {
     status: 200,
     data: {
       token,
-      user: {
-        id: user.id,
-        phone: user.phone,
-        name: user.name,
-        email: user.email,
-        phoneVerifiedAt: user.phoneVerifiedAt,
-      },
+      user: await formatAuthUser(user),
     },
   };
 }
@@ -364,13 +387,7 @@ export async function completeRegistration(input: {
     status: 201,
     data: {
       token,
-      user: {
-        id: user.id,
-        phone: user.phone,
-        name: user.name,
-        email: user.email,
-        phoneVerifiedAt: user.phoneVerifiedAt,
-      },
+      user: await formatAuthUser(user),
     },
   };
 }
@@ -431,13 +448,7 @@ export async function loginWithPassword(phone: string, password: string) {
     status: 200,
     data: {
       token,
-      user: {
-        id: user.id,
-        phone: user.phone,
-        name: user.name,
-        email: user.email,
-        phoneVerifiedAt: user.phoneVerifiedAt,
-      },
+      user: await formatAuthUser(user),
     },
   };
 }
@@ -520,13 +531,7 @@ export async function verifyAndSetLegacyPassword(input: {
     status: 200,
     data: {
       token,
-      user: {
-        id: user.id,
-        phone: user.phone,
-        name: user.name,
-        email: user.email,
-        phoneVerifiedAt: user.phoneVerifiedAt,
-      },
+      user: await formatAuthUser(user),
     },
   };
 }

@@ -51,3 +51,39 @@ export async function verifyAccountUpdateApi(payload: {
     body: payload,
   });
 }
+
+export interface UploadAvatarResponse {
+  message: string;
+  avatarUrl: string;
+  user: User;
+}
+
+export interface DeleteAvatarResponse {
+  message: string;
+  user: User;
+}
+
+/**
+ * Uploads a profile avatar picture using base64 payload.
+ */
+export async function uploadAvatarApi(
+  imageBase64: string,
+  mimeType: string = 'image/jpeg'
+): Promise<UploadAvatarResponse> {
+  return apiRequest<UploadAvatarResponse>('/api/account/avatar', {
+    method: 'POST',
+    body: {
+      imageBase64,
+      mimeType,
+    },
+  });
+}
+
+/**
+ * Removes the authenticated user's profile avatar picture.
+ */
+export async function deleteAvatarApi(): Promise<DeleteAvatarResponse> {
+  return apiRequest<DeleteAvatarResponse>('/api/account/avatar', {
+    method: 'DELETE',
+  });
+}

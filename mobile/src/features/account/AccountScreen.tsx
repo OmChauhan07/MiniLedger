@@ -11,6 +11,7 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
+  Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { User, Summary, Loan } from '../../types/index';
@@ -25,9 +26,11 @@ import {
   ArrowUpRightIcon,
   ArrowDownLeftIcon,
   EditIcon,
+  CameraIcon,
 } from '../../components/Icons';
 import { EditProfileModal } from '../../components/EditProfileModal';
 import { ExportPdfModal } from '../../components/ExportPdfModal';
+import { AvatarPickerModal } from '../../components/AvatarPickerModal';
 import { Theme, STATUS_BAR_HEIGHT } from '../../theme/index';
 import { formatCurrencyCompact, getInitials } from '../../utils/format';
 
@@ -55,6 +58,7 @@ export function AccountScreen({
   const [remindersEnabled, setRemindersEnabled] = useState(true);
   const [isEditProfileVisible, setIsEditProfileVisible] = useState(false);
   const [isExportPdfVisible, setIsExportPdfVisible] = useState(false);
+  const [isAvatarPickerVisible, setIsAvatarPickerVisible] = useState(false);
 
   const totalLent = parseFloat(summary?.totalLent ?? '0') || 0;
   const totalBorrowed = parseFloat(summary?.totalBorrowed ?? '0') || 0;
@@ -101,6 +105,15 @@ export function AccountScreen({
     }
   };
 
+  const handleAvatarUpdated = (updatedUser: User) => {
+    if (onUpdateUser) {
+      onUpdateUser(updatedUser);
+    }
+    if (onShowToast) {
+      onShowToast(updatedUser.avatarUrl ? 'Profile picture updated successfully!' : 'Profile picture removed.');
+    }
+  };
+
   const handleExportSuccess = (filename: string, recordCount: number) => {
     if (onShowToast) {
       onShowToast(`Exported ${recordCount} records to ${filename}`);
@@ -132,12 +145,24 @@ export function AccountScreen({
         {/* Profile Bento Card */}
         <View style={styles.profileCard}>
           <View style={styles.profileTopRow}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{userInitials}</Text>
-              <View style={styles.verifiedCheckBadge}>
-                <CheckIcon size={9} color="#FFFFFF" strokeWidth={2.4} />
+            <TouchableOpacity
+              style={styles.avatarCircle}
+              activeOpacity={0.8}
+              onPress={() => setIsAvatarPickerVisible(true)}
+            >
+              {user.avatarUrl ? (
+                <Image
+                  source={{ uri: user.avatarUrl }}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.avatarText}>{userInitials}</Text>
+              )}
+              <View style={styles.cameraCheckBadge}>
+                <CameraIcon size={9} color="#FFFFFF" strokeWidth={2.4} />
               </View>
-            </View>
+            </TouchableOpacity>
 
             <View style={styles.profileDetailsCol}>
               <View style={styles.profileNameRow}>
@@ -333,6 +358,14 @@ export function AccountScreen({
         onClose={() => setIsExportPdfVisible(false)}
         onExportSuccess={handleExportSuccess}
       />
+
+      {/* Avatar Picker Modal */}
+      <AvatarPickerModal
+        visible={isAvatarPickerVisible}
+        user={user}
+        onClose={() => setIsAvatarPickerVisible(false)}
+        onAvatarUpdated={handleAvatarUpdated}
+      />
     </SafeAreaView>
   );
 }
@@ -406,6 +439,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+  },
+  cameraCheckBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   verifiedCheckBadge: {
     position: 'absolute',

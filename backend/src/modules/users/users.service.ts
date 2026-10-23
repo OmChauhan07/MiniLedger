@@ -11,6 +11,7 @@ export interface PublicUserResult {
   id: string;
   name: string;
   maskedPhone: string;
+  avatarUrl?: string | null;
 }
 
 export interface CounterpartyRelationshipResult {
@@ -68,6 +69,7 @@ export async function searchRegisteredUsers(
       id: true,
       name: true,
       phone: true,
+      avatarKey: true,
     },
     take: effectiveLimit,
     orderBy: {
@@ -79,6 +81,7 @@ export async function searchRegisteredUsers(
     id: u.id,
     name: u.name || 'MiniLedger User',
     maskedPhone: maskPhoneNumber(u.phone),
+    avatarUrl: u.avatarKey ? `/api/users/${u.id}/avatar` : null,
   }));
 }
 

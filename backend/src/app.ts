@@ -40,7 +40,16 @@ app.use((_req: Request, res: Response) => {
 });
 
 // Centralized error handling middleware to prevent stack trace leaks
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  if (err?.type === 'entity.too.large' || err?.status === 413) {
+    return res.status(413).json({
+      error: {
+        code: 'PAYLOAD_TOO_LARGE',
+        message: 'The submitted file or request payload exceeds the allowed size limit.',
+      },
+    });
+  }
+
   console.error('Unhandled server error:', err);
   res.status(500).json({
     error: {

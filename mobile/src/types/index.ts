@@ -8,6 +8,8 @@ export interface User {
   name?: string | null;
   email?: string | null;
   phoneVerifiedAt?: string | null;
+  avatarUrl?: string | null;
+  hasAvatar?: boolean;
 }
 
 export type LoanDirection = 'LENT' | 'BORROWED';
@@ -16,6 +18,7 @@ export interface CounterpartyUser {
   id: string;
   name: string;
   maskedPhone: string;
+  avatarUrl?: string | null;
 }
 
 export interface PairwiseNetting {

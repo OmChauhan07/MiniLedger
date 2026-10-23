@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { User, Loan, Summary, CreateLoanPayload, LoanDirection } from './src/types/index';
 import { getStoredToken, getStoredUser, setStoredToken, setStoredUser, clearStoredToken, clearStoredUser } from './src/utils/storage';
 import { fetchSummaryApi } from './src/api/summary.api';
+import { fetchAccountProfileApi } from './src/api/account.api';
 import { fetchLoansApi, markLoanRepaidApi, createLoanApi } from './src/api/loan.api';
 import { LoginScreen } from './src/features/auth/LoginScreen';
 import { SignupScreen } from './src/features/auth/SignupScreen';
@@ -60,6 +61,14 @@ export default function App() {
         if (storedToken && storedUser) {
           setToken(storedToken);
           setUser(storedUser);
+          fetchAccountProfileApi()
+            .then((res) => {
+              if (res?.user) {
+                setUser(res.user);
+                setStoredUser(res.user).catch(() => {});
+              }
+            })
+            .catch(() => {});
         }
       } catch (err) {
         console.warn('Failed to restore user session:', err);
